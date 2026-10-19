@@ -8,9 +8,9 @@ A polished Windows desktop home for your team's applications and websites, built
 
 For a new computer:
 
-1. Install **64-bit Python 3.11, 3.12, or 3.13** from [python.org](https://www.python.org/downloads/windows/), with **Add Python to PATH** enabled. This project was verified using Python 3.12.10.
+1. Install **standard 64-bit CPython 3.11–3.15**, including **Python 3.14 and 3.15**, from [python.org](https://www.python.org/downloads/windows/), with **Add Python to PATH** enabled. Use the standard build, not the optional free-threaded build. Python 3.16 and later are outside the currently supported range.
 2. Copy the project into a writable local folder on **Windows 10 or 11**.
-3. Double-click `setup.bat`. It creates `.venv` and installs the pinned **PySide6 6.8.3** dependency. Internet access is needed during installation. Qt is included; no separate Qt installation, database server, Node.js or Office installation is needed to start WorkTool. See [Qt's installation documentation](https://doc.qt.io/qtforpython-6/gettingstarted.html).
+3. Double-click `setup.bat`. It creates `.venv` and installs the pinned **PySide6 6.12.0** dependency, whose [published compatibility range includes Python 3.14 and 3.15](https://pypi.org/project/PySide6/6.12.0/). Internet access is needed during installation. Qt is included; no separate Qt installation, database server, Node.js or Office installation is needed to start WorkTool. See [Qt's installation documentation](https://doc.qt.io/qtforpython-6/gettingstarted.html).
 4. Open `demo.bat` for example accounts, or `start.bat` to create your own first administrator in a separate, fresh workspace.
 
 Equivalent PowerShell commands, from this project folder:
@@ -22,6 +22,25 @@ python -m venv .venv
 ```
 
 Calling the virtual environment's Python directly avoids PowerShell activation-policy issues. Regular users do not need Windows administrator rights. WorkTool launches applications under the current Windows user's permissions.
+
+### Upgrading an existing installation / choosing Python 3.14 or 3.15
+
+Close WorkTool and run `setup.bat` again to update its GUI dependency. Existing accounts, groups, assignments, favorites and appearance settings remain in the app's separate data folder.
+
+An existing `.venv` keeps the Python version with which it was created. Installing a newer system Python does not change that environment. Setup prints the project environment's actual Python version. To switch an existing installation to Python 3.14 or 3.15:
+
+1. Install the desired standard 64-bit CPython version and close WorkTool.
+2. Rename the project's `.venv` folder to `.venv-backup` using File Explorer; do not overwrite an existing backup.
+3. Run setup with the full path to the desired interpreter, for example:
+
+   ```powershell
+   .\setup.bat "C:\Users\YourName\AppData\Local\Programs\Python\Python315\python.exe"
+   ```
+
+   Replace the example path with your actual installed Python path. A new `.venv` is created with that interpreter. You can also use this explicit-path option on a fresh installation.
+4. Open `demo.bat` or `start.bat` as usual. Keep the backup until the new environment is working.
+
+The virtual environment contains software dependencies, not your WorkTool account database. Changing it does not reset normal or demo accounts. The app's supported interpreter range is defined in `pyproject.toml` and checked by setup; removing an upper-bound check alone is not a compatibility upgrade.
 
 ## Demo accounts
 
@@ -162,13 +181,23 @@ Pass `--native` to the preview script to check the actual Windows Qt platform in
 
 Tests use isolated databases. UI tests run offscreen without opening real websites. A process integration test launches a temporary Python child process and checks argument boundaries. Screenshots go into the ignored `test-artifacts` folder. External subscriptions, network access and installed tools need checking on your representative company workstation.
 
+Compatibility verified on Windows on 19 October 2026 with PySide6 6.12.0 and pytest 9.1.1:
+
+| Standard 64-bit CPython | Full test suite |
+|---|---|
+| 3.12.10 | 37 passed |
+| 3.14.8 | 37 passed |
+| 3.15.0 | 37 passed |
+
+The native Windows screenshot preview was also run successfully on Python 3.15.0. Python 3.11 and 3.13 remain in the supported dependency range, but were not rerun during this upgrade. Optional packaged executable builds require their own validation.
+
 ## Optional executable build
 
 Run `build.bat` on Windows with a working virtual environment. It installs PyInstaller as a build dependency and creates `dist\WorkTool\WorkTool.exe`. Distribute the **entire `dist\WorkTool` folder**, including `_internal`. Recipients do not need Python. Run `WorkTool.exe --demo` for demo mode. The source version is the verified delivery; smoke-test, scan and sign packaged builds through your organization's deployment process before distributing them.
 
 ## Troubleshooting
 
-- **Python not found / Store opens:** install 64-bit Python 3.11–3.13 with PATH enabled and reopen your terminal. Check Windows App Execution Aliases if a Store alias conflicts.
+- **Python not found / Store opens:** install standard 64-bit CPython 3.11–3.15 with PATH enabled and reopen your terminal. Check Windows App Execution Aliases if a Store alias conflicts, or pass the full Python path to `setup.bat`.
 - **Package install fails:** verify connectivity/proxy settings or have IT use your approved package mirror.
 - **Setup needed on a card:** install that app separately or edit its executable path. Office/Store installations can differ from the examples.
 - **Links do not open:** configure your default browser and check the URL/connectivity.

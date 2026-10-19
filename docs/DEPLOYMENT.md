@@ -41,6 +41,10 @@ Retain a second administrator account for operational recovery. Another admin ca
 
 ## Runtime and distribution
 
-Target: 64-bit Windows 10/11 and Python 3.11–3.13; verified with Python 3.12.10 and PySide6 6.8.3. Password hashing, SQLite and logging use Python's standard library. `pytest` is development-only. `build.bat` optionally installs PyInstaller and creates a folder-based executable distribution; that build needs independent smoke testing, scanning and signing before rollout.
+Target: 64-bit Windows 10/11 and standard CPython 3.11–3.15 with PySide6 6.12.0. The supported range now includes Python 3.14 and 3.15; it excludes free-threaded interpreter builds and Python 3.16+. Password hashing, SQLite and logging use Python's standard library. `pytest` 9.x is development-only. `build.bat` optionally installs PyInstaller 6.22.3 or later in the 6.x series and creates a folder-based executable distribution; that build needs independent smoke testing, scanning and signing before rollout.
+
+An existing virtual environment retains its original Python version. To select a different interpreter, close WorkTool, rename the `.venv` folder as a backup and run `setup.bat` with the full path to the desired Python executable. Setup prints the actual environment version. Account and configuration data remains in the separate application data directory. Upgrading the GUI dependency does not require a database reset.
+
+Upgrade validation on 19 October 2026: all 37 automated tests passed independently on standard 64-bit CPython 3.12.10, 3.14.8 and 3.15.0 with PySide6 6.12.0 and pytest 9.1.1. Dependency consistency checks passed in each environment. The native Windows GUI preview also ran on Python 3.15.0. Python 3.11/3.13 and packaged executable builds were not rerun as part of this upgrade.
 
 Third-party starter tools are installed/licensed separately. External links and initial package installation need network access; local login, catalog administration and installed-app launching do not need a WorkTool server. Qt/PySide is third-party software: retain its notices and have your organization evaluate distribution obligations using [Qt's licensing documentation](https://doc.qt.io/qtforpython-6/licenses.html).
