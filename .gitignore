@@ -1,12 +1,7 @@
 .venv/
-.venv-*/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.egg-info/
 build/
 dist/
-*.spec
-*.sqlite3*
-test-artifacts/
-.tmp/
-pytest-cache-files-*/
