@@ -10,7 +10,7 @@ from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QLineEdit, QScrollArea
 
 from tslibrary_ui import LoginWindow
-from main import create_app
+from tslibrary_ui.app import create_app
 
 
 class LoginUiChecks(unittest.TestCase):
@@ -34,10 +34,9 @@ class LoginUiChecks(unittest.TestCase):
         QTest.keyClick(self.window.username_field.edit, Qt.Key.Key_Return)
         self.assertTrue(self.window.password_field.edit.hasFocus())
         QTest.keyClicks(self.window.password_field.edit, "quiet-morning")
-        self.window.remember_checkbox.setChecked(True)
         QTest.keyClick(self.window.password_field.edit, Qt.Key.Key_Return)
         self.assertEqual(spy.count(), 1)
-        self.assertEqual(spy.at(0), ["marti_01", "quiet-morning", True])
+        self.assertEqual(spy.at(0), ["marti_01", "quiet-morning"])
         self.assertTrue(self.window.isVisible())
         self.assertNotIn("quiet-morning", self.window.notice.text())
 
@@ -52,11 +51,25 @@ class LoginUiChecks(unittest.TestCase):
         self.assertEqual(field.edit.echoMode(), QLineEdit.EchoMode.Password)
         self.assertEqual(field.edit.text(), "sample-password")
 
-    def test_recovery_action_emits_its_signal(self):
-        spy = QSignalSpy(self.window.recovery_requested)
-        self.window.recovery_button.click()
-        self.assertEqual(spy.count(), 1)
-        self.assertTrue(self.window.notice.text().startswith("UI preview"))
+    def test_open_library_does_not_request_admin_sign_in(self):
+        open_spy = QSignalSpy(self.window.open_requested)
+        admin_spy = QSignalSpy(self.window.sign_in_requested)
+        # Normal access works with both empty and filled-in admin fields.
+        for username, password in [("", ""), ("admin", "sample-password")]:
+            self.window.username_field.edit.setText(username)
+            self.window.password_field.edit.setText(password)
+            self.window.open_button.click()
+        self.assertEqual(open_spy.count(), 2)
+        self.assertEqual(open_spy.at(0), [])
+        self.assertEqual(admin_spy.count(), 0)
+
+    def test_default_keyboard_action_opens_library(self):
+        open_spy = QSignalSpy(self.window.open_requested)
+        admin_spy = QSignalSpy(self.window.sign_in_requested)
+        self.assertTrue(self.window.open_button.hasFocus())
+        QTest.keyClick(self.window.open_button, Qt.Key.Key_Space)
+        self.assertEqual(open_spy.count(), 1)
+        self.assertEqual(admin_spy.count(), 0)
 
     def test_layout_adapts_without_horizontal_overflow(self):
         for width, height in [(1180, 820), (900, 700), (899, 700),

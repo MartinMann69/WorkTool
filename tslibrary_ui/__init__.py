@@ -1,5 +1,6 @@
-"""Reusable, authentication-free PySide6 login screen."""
+"""TSLibrary welcome and administration UI."""
 
-from .login import LoginWindow
+from .admin import AdminWindow
+from .welcome import LoginWindow
 
-__all__ = ["LoginWindow"]
+__all__ = ["AdminWindow", "LoginWindow"]

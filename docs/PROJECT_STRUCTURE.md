@@ -1,0 +1,143 @@
+# Project structure
+
+The code is organized by feature. Start in the folder named after the part of the app you want to change. `shared/` contains UI used by multiple features.
+
+## Folder map
+
+```text
+main.py                         Small executable entry point
+requirements.txt                Runtime dependency
+tslibrary_ui/
+    __init__.py                 Public AdminWindow and LoginWindow imports
+    app.py                      QApplication, fonts, palette, startup arguments
+    navigation.py               Welcome/admin window transitions
+    state.py                    Session-only lists shared with the admin pages
+    admin/
+        window.py               Admin shell: creates pages and switches tabs
+        sidebar.py              Navigation, branding, and back button
+    welcome/
+        window.py               Welcome layout, copy, signals, and animation
+        widgets.py              InputField, password toggle, primary button
+    licenses/
+        models.py               LibraryItem, LicenseEntry, totals, usage rules
+        page.py                 Item table, search, category filter, item actions
+        item_dialog.py          Item details and item deletion confirmation
+        entry_dialog.py         License entry editor and deletion confirmation
+        window.py               Per-item license manager and license table
+    applications/
+        models.py               Application data and launch-target display
+        page.py                 Table, search, add/edit/remove actions
+        dialogs.py              Application editor and removal confirmation
+        targets.py              File-path validation and argument parsing
+        icons.py                Windows executable/shortcut icon lookup
+    websites/
+        models.py               Website data
+        page.py                 Table, search, add/edit/remove actions
+        dialogs.py              Website editor and removal confirmation
+        urls.py                 URL validation and suggested names
+        icons.py                Locally drawn globe icon
+    shared/
+        catalog_page.py         Common admin header, toolbar, empty state, table
+        controls.py             Trash button, filter combo, spinbox, checkbox
+        forms.py                Label and button factories
+        tables.py               Table configuration and cell helpers
+        confirmation.py         Common confirmation-dialog layout
+    graphics/
+        brand.py                Bookshelf logo and TSLibrary wordmark
+        shoji.py                Large welcome illustration and resize painting
+        shelf.py                Sidebar and empty-state illustration
+        icons.py                General welcome/admin icons
+        typography.py           Painter font helpers
+    styles/
+        __init__.py             Package-relative QSS loader
+        base.qss                Welcome and common theme rules
+        admin.qss               Admin pages, tables, and dialogs
+tests/                          Feature-based automated checks
+scripts/preview.py              Screenshots with sample data
+previews/                       Generated screenshots, not application source
+docs/FEATURES.md                Detailed behavior and preview limitations
+```
+
+`__init__.py` files expose convenient imports or mark packages. Implementation belongs in the named modules.
+
+`.venv/` contains installed dependencies, `__pycache__/` contains generated Python caches, and `.idea/` contains IDE settings. These are not places to change application behavior.
+
+## Where to make common changes
+
+| If you want to… | Edit |
+| --- | --- |
+| Change welcome copy or rearrange its fields | `welcome/window.py` |
+| Change password visibility or field focus behavior | `welcome/widgets.py` |
+| Change what happens between welcome and admin | `navigation.py` |
+| Change startup, fonts, or the application palette | `app.py` |
+| Rename, reorder, or add admin tabs | `admin/window.py`; sidebar buttons follow its page mapping |
+| Change sidebar spacing or its back button | `admin/sidebar.py` |
+| Change the common admin search/header/empty-state layout | `shared/catalog_page.py` |
+| Change one tab's labels, filtering, sorting, columns, or row actions | That feature's `page.py` |
+| Change item-name/category fields | `licenses/item_dialog.py` |
+| Change license-label/key/count/unlimited fields | `licenses/entry_dialog.py` |
+| Change license rows or key visibility | `licenses/window.py` |
+| Change total calculations or available/used transfer rules | `licenses/models.py` |
+| Change executable/shortcut paths or argument handling | `applications/targets.py` |
+| Change the application picker or icon preview | `applications/dialogs.py`, `applications/icons.py` |
+| Change accepted URLs or suggested website names | `websites/urls.py` |
+| Change dialog-wide confirmation behavior | `shared/confirmation.py` |
+| Change colors, borders, or hover styles | `styles/base.qss` or `styles/admin.qss` |
+| Change illustrations, branding, or general icons | The matching file in `graphics/` |
+| Change application/website data fields | That feature's `models.py` |
+| Find session items, applications, or websites | `state.py` |
+
+## Responsibilities and data flow
+
+`main.py` starts `app.py`, which creates Qt and the `PreviewController` in `navigation.py`. That controller owns the welcome and admin windows. It currently opens the admin preview without checking credentials.
+
+`AdminWindow` composes a sidebar and three feature pages. Each page owns its dialogs, rows, filtering, and refresh behavior. It does not need to know about other tabs. `CatalogPage` supplies their shared layout; changing one feature's behavior belongs in its own `page.py`.
+
+`LibrarySession` holds three in-memory lists. Pages receive those same lists, so edits update the session without copying it. Dataclasses describe entries. Parsing and validation stay in `applications/targets.py` and `websites/urls.py`; license calculations and usage transfers stay in `licenses/models.py`.
+
+There is no persistence layer or authentication service yet. When adding these, give storage and authentication their own modules and connect them through navigation/pages. Keep file/network operations out of painting and layout construction.
+
+## Access a feature from code
+
+```python
+from tslibrary_ui import AdminWindow
+from tslibrary_ui.licenses.models import LibraryItem
+from tslibrary_ui.state import LibrarySession
+
+session = LibrarySession(items=[LibraryItem("Design suite", "Creative tools")])
+admin = AdminWindow(session=session)
+admin.set_page("Licenses")
+
+admin.session.items
+admin.licenses_page.open_licenses(session.items[0])
+admin.applications_page.add_application()
+admin.websites_page.add_website()
+```
+
+Create a QApplication first. After changing a list directly, call the matching page's `refresh()`; item-category changes also need `licenses_page.refresh_categories()`. Normal dialog actions do this automatically. A supplied session can be reused across windows, but is still lost when the process exits.
+
+## Add another admin feature
+
+1. Create a feature folder with `models.py`, `page.py`, and any needed dialogs/validation modules.
+2. Subclass `shared.catalog_page.CatalogPage` for the common catalog layout. Define its copy/headers, connect `add_requested`, configure its table, and implement `refresh()`.
+3. Add its list to `LibrarySession`, create the page in `admin/window.py`, and register it in `self.pages`. Add its navigation icon to `graphics/icons.py`.
+4. Put feature behavior in that page/dialog/model rather than adding edit logic to `AdminWindow`.
+5. Add checks in `tests/test_<feature>.py`, run the suite, and add screenshots in `scripts/preview.py` if useful.
+
+## Updated locations
+
+The public `from tslibrary_ui import AdminWindow, LoginWindow` imports are unchanged. Old flat implementation files have been removed to avoid duplicate sources.
+
+| Previous location | Current location |
+| --- | --- |
+| `main.create_app` | `tslibrary_ui.app.create_app` |
+| `tslibrary_ui.login.LoginWindow` | `tslibrary_ui.welcome.LoginWindow` |
+| `tslibrary_ui.preview.PreviewController` | `tslibrary_ui.navigation.PreviewController` |
+| `tslibrary_ui.controls` | `tslibrary_ui.shared.controls` |
+| `tslibrary_ui.artwork` | `tslibrary_ui.graphics` modules |
+| `admin.items`, `admin.applications`, `admin.websites` | `admin.session.items`, `.applications`, `.websites` |
+| Admin-wide list/dialog methods | `admin.licenses_page`, `.applications_page`, `.websites_page` |
+| `admin.nav_buttons`, `admin.back_button` | `admin.sidebar.nav_buttons`, `.back_button` |
+| `checks/` | `tests/` |
+
+Models and dialogs remain available from feature packages, such as `from tslibrary_ui.licenses import LicenseEntry, LicenseEntryDialog`.

@@ -1,6 +1,8 @@
 # TSLibrary
 
-A Japanese-inspired PySide6 login screen for TSLibrary. A charcoal theme with warm ivory type, brass accents, and original shoji, bamboo, and lantern artwork drawn with Qt. No image assets, downloads, browser views, authentication, or credential storage.
+A PySide6 desktop UI with a dark, Japanese-inspired welcome screen and an admin workspace for licenses, applications, and websites.
+
+Start with the [project structure guide](docs/PROJECT_STRUCTURE.md) to find the file for a change. The [feature reference](docs/FEATURES.md) describes the current workflows.
 
 ## Run
 
@@ -12,37 +14,54 @@ python -m venv .venv
 .venv\Scripts\python main.py
 ```
 
-On macOS/Linux, use `.venv/bin/python` instead. The layout uses installed Georgia and Segoe UI fonts with Qt font fallback; Yu Mincho is used for Japanese text.
+Open administration directly:
 
-## Included
-
-- Original architectural artwork inspired by dark timber, shoji screens, and warm lantern light.
-- Scalable bookshelf mark, artwork, and icons drawn with QPainter; no external images.
-- Focus and hover states, password visibility toggle, remember checkbox, and keyboard navigation.
-- Gentle entrance animation; pass `animate=False` to disable it.
-- Compact single-panel layout below 900px, with scrolling for short windows.
-- UI-only sign-in and recovery actions. Clicking shows a brief preview notice; no action authenticates or navigates.
-- New users are added by an administrator; the login screen has no self-registration option.
-
-## Use in your project
-
-```python
-from tslibrary_ui import LoginWindow
-
-window = LoginWindow(show_preview_feedback=False)
-# Optional: connect intent signals to your own code later.
-window.sign_in_requested.connect(your_handler)  # username, password, remember
-window.recovery_requested.connect(your_recovery_handler)
-window.show()
+```powershell
+.venv\Scripts\python main.py --admin
 ```
 
-Create a `QApplication` first (see `main.py`). Keep `tslibrary_ui/theme.qss` and `tslibrary_ui/check.svg` with the Python modules. Colors and styling live in `theme.qss`; the original Qt artwork lives in `artwork.py`.
+On macOS/Linux, use `.venv/bin/python` instead. Georgia, Segoe UI, and Yu Mincho are used when installed, with Qt font fallback.
+
+This is a UI preview. Admin credentials are not checked, entries stay in memory, and closing the app loses the session. Application selection never launches files; website editing makes no network requests. The regular-user window is still pending, so **Open TSLibrary** currently shows preview feedback.
+
+## Find the right file
+
+| Change | Start here |
+| --- | --- |
+| Welcome text, form, and buttons | [welcome/window.py](tslibrary_ui/welcome/window.py) |
+| Admin tabs / sidebar | [admin/window.py](tslibrary_ui/admin/window.py), [admin/sidebar.py](tslibrary_ui/admin/sidebar.py) |
+| License list and item actions | [licenses/page.py](tslibrary_ui/licenses/page.py) |
+| License totals and usage rules | [licenses/models.py](tslibrary_ui/licenses/models.py) |
+| Application list / file picker | [applications/page.py](tslibrary_ui/applications/page.py), [applications/dialogs.py](tslibrary_ui/applications/dialogs.py) |
+| Website list / URL validation | [websites/page.py](tslibrary_ui/websites/page.py), [websites/urls.py](tslibrary_ui/websites/urls.py) |
+| Colors and QSS styling | [styles/](tslibrary_ui/styles/) |
+| Logo, illustrations, and icons | [graphics/](tslibrary_ui/graphics/) |
+| Cross-window navigation | [navigation.py](tslibrary_ui/navigation.py) |
+| Session data | [state.py](tslibrary_ui/state.py) |
+
+Each feature folder keeps its models, dialogs, and page together. Reusable controls and layouts live in `shared/`. See the [full guide](docs/PROJECT_STRUCTURE.md) for individual dialogs and extension examples.
 
 ## Verify and preview
 
 ```powershell
-.venv\Scripts\python -m unittest discover -s checks -v
+.venv\Scripts\python -m unittest discover -s tests -v
 .venv\Scripts\python scripts\preview.py
 ```
 
-The preview script renders the actual Qt UI offscreen to `previews/desktop.png`, `previews/compact.png`, `previews/wide.png`, and `previews/tall.png`.
+Tests are grouped by feature under `tests/`. Generated screenshots go into `previews/`; their sample data is not loaded into the runnable application.
+
+## Reuse the windows
+
+```python
+from tslibrary_ui import AdminWindow, LoginWindow
+from tslibrary_ui.app import create_app
+
+app = create_app()
+welcome = LoginWindow(show_preview_feedback=False)
+welcome.open_requested.connect(your_open_handler)
+welcome.sign_in_requested.connect(your_admin_handler)  # username, password
+welcome.show()
+app.exec()
+```
+
+`tslibrary_ui/navigation.py` shows the runnable preview's wiring. Keep the `styles/` folder with the Python package; its loader resolves paths independently of the working directory.
