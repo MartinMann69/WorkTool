@@ -64,7 +64,7 @@ def admin_icon(kind, color="#a6ae96"):
     p.setPen(QPen(QColor(color), 1.2, Qt.PenStyle.SolidLine,
                  Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
     p.setBrush(Qt.BrushStyle.NoBrush)
-    if kind in ("library", "items"):
+    if kind in ("library", "items", "full library"):
         draw_library_mark(p, QRectF(1, 1, 18, 18), color)
     elif kind == "licenses":
         p.drawEllipse(QPointF(6, 7), 3.5, 3.5)
@@ -76,6 +76,10 @@ def admin_icon(kind, color="#a6ae96"):
         p.drawLine(QPointF(2.5, 7), QPointF(17.5, 7))
         for x in (5, 7.5, 10):
             p.drawPoint(QPointF(x, 5))
+    elif kind == "phone apps":
+        p.drawRoundedRect(QRectF(5, 1.5, 10, 17), 2, 2)
+        p.drawLine(QPointF(8, 4), QPointF(12, 4))
+        p.drawLine(QPointF(9, 16), QPointF(11, 16))
     elif kind == "websites":
         p.drawEllipse(QPointF(10, 10), 7, 7)
         p.drawEllipse(QRectF(6.5, 3, 7, 14))

@@ -1,4 +1,4 @@
-"""Start TSLibrary: python main.py (or python main.py --admin)."""
+"""Start TSLibrary; --admin or --library opens the chosen workspace directly."""
 
 import sys
 

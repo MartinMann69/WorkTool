@@ -1,0 +1,1 @@
+QMainWindow#mainWindow, QWidget#mainContent { background: #181b18; }

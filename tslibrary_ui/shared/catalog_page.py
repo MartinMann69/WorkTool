@@ -18,7 +18,7 @@ from .tables import setup_table
 
 
 class CatalogPage(QWidget):
-    """Common layout for LicensesPage, ApplicationsPage, and WebsitesPage."""
+    """Common layout for admin inventory pages."""
 
     add_requested = Signal()
     title = ""

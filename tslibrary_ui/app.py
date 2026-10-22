@@ -1,4 +1,4 @@
-"""Run the TSLibrary UI preview: python main.py (or python main.py --admin)."""
+"""Run TSLibrary; --admin and --library open their windows directly."""
 
 import os
 from pathlib import Path
@@ -44,6 +44,8 @@ def main() -> int:
     controller = PreviewController()
     if "--admin" in sys.argv:
         controller.show_admin()
+    elif "--library" in sys.argv:
+        controller.show_library()
     else:
         controller.welcome.show()
     return app.exec()

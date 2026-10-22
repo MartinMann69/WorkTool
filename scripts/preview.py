@@ -11,7 +11,11 @@ sys.path.insert(0, str(ROOT))
 from PySide6.QtCore import QCoreApplication
 
 from tslibrary_ui.app import create_app
-from tslibrary_ui import AdminWindow, LoginWindow
+from tslibrary_ui import AdminWindow, LibraryWindow, LoginWindow, MainWindow
+from tslibrary_ui.applications.models import Application
+from tslibrary_ui.phone_apps.models import PhoneApp
+from tslibrary_ui.state import LibrarySession
+from tslibrary_ui.websites.models import Website
 from tslibrary_ui.licenses import (
     DeleteItemDialog, DeleteLicenseDialog, LibraryItem, LicenseEntry, LicenseEntryDialog,
     LicenseWindow,
@@ -28,10 +32,43 @@ def save_preview(app, window, destination):
     print(destination)
 
 
+def save_library_previews(app, output):
+    # These examples belong only to screenshots; the runnable app starts empty.
+    session = LibrarySession(
+        applications=[Application("Adobe Acrobat", r"C:\Tools\Acrobat\Acrobat.exe"),
+                      Application("Visual Studio Code", r"C:\Tools\VSCode\Code.exe")],
+        websites=[Website("Team knowledge base", "https://docs.example.com"),
+                  Website("Team portal", "https://portal.example.com")],
+        phone_apps=[PhoneApp("Microsoft Authenticator"), PhoneApp("Microsoft Teams")],
+        items=[LibraryItem("Creative Cloud", "Design & creative", [LicenseEntry("Team pool", 8, used=2)]),
+               LibraryItem("Microsoft 365", "Productivity", [LicenseEntry("Company plan", 20, used=12)])],
+    )
+    library = LibraryWindow(session=session)
+    save_preview(app, library, output / "library.png")
+    library.resize(820, 650)
+    save_preview(app, library, output / "library-small.png")
+    library.resize(1320, 850)
+    library.type_filter.setCurrentIndex(library.type_filter.findData("websites"))
+    save_preview(app, library, output / "library-websites.png")
+    library.close()
+    empty = LibraryWindow()
+    save_preview(app, empty, output / "library-empty.png")
+    empty.close()
+    admin = AdminWindow(session=session)
+    admin.set_page("Full library")
+    save_preview(app, admin, output / "admin-full-library.png")
+    admin.resize(1000, 680)
+    save_preview(app, admin, output / "admin-full-library-small.png")
+    admin.close()
+
+
 def main():
     app = create_app()
     output = ROOT / "previews"
     output.mkdir(exist_ok=True)
+    main_window = MainWindow()
+    save_preview(app, main_window, output / "main.png")
+    main_window.close()
     window = LoginWindow(animate=False)
     for name, width, height in [("desktop", 1180, 820), ("compact", 480, 820),
                                 ("wide", 1543, 790), ("tall", 1000, 1100)]:
@@ -56,9 +93,24 @@ def main():
         if not admin.grab().save(str(destination)):
             raise RuntimeError(f"Could not save {destination}")
         print(destination)
-    for page in ("Applications", "Websites"):
+    for page in ("Applications", "Phone apps", "Websites"):
         admin.set_page(page)
-        save_preview(app, admin, output / f"admin-{page.lower()}.png")
+        save_preview(app, admin, output / f"admin-{page.lower().replace(' ', '-')}.png")
+    admin.set_page("Phone apps")
+    admin.resize(1320, 850)
+    admin.phone_apps_page.add_phone_app()
+    phone_editor = admin.phone_apps_page.phone_app_dialog
+    phone_editor.name_edit.setText("Microsoft Teams")
+    save_preview(app, phone_editor, output / "phone-app-entry.png")
+    phone_editor.save_button.click()
+    for name in ("Microsoft Authenticator", "Adobe Scan"):
+        admin.phone_apps_page.add_phone_app()
+        admin.phone_apps_page.phone_app_dialog.name_edit.setText(name)
+        admin.phone_apps_page.phone_app_dialog.save_button.click()
+        app.processEvents()
+    save_preview(app, admin, output / "admin-phone-app-list.png")
+    admin.resize(1000, 680)
+    save_preview(app, admin, output / "admin-phone-app-list-small.png")
     admin.set_page("Applications")
     admin.resize(1320, 850)
     admin.applications_page.add_application()
@@ -119,6 +171,7 @@ def main():
     delete_key_dialog.close()
     manager.close()
     admin.close()
+    save_library_previews(app, output)
 
 
 if __name__ == "__main__":

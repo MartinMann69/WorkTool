@@ -99,7 +99,7 @@ class LoginWindow(QWidget):
         form.addSpacing(14)
         form.addWidget(label("Welcome\nto TSLibrary.", "heading"))
         form.addSpacing(14)
-        description = label("Open your library. Admins can sign in below.", "description")
+        description = label("Open TSLibrary. Admins can sign in below.", "description")
         description.setWordWrap(True)
         form.addWidget(description)
         form.addSpacing(23)

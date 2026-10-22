@@ -81,7 +81,7 @@ class AdminUiChecks(unittest.TestCase):
         admin = AdminWindow()
         admin.show()
         self.app.processEvents()
-        for page in ("Licenses", "Applications", "Websites"):
+        for page in ("Licenses", "Applications", "Phone apps", "Websites"):
             admin.sidebar.nav_buttons[page].click()
             self.assertEqual(admin.current_page.heading.text(), page)
             self.assertTrue(admin.sidebar.nav_buttons[page].isChecked())
@@ -105,7 +105,7 @@ class AdminUiChecks(unittest.TestCase):
         admin.show()
         admin.current_page.refresh()
         self.app.processEvents()
-        for page in ("Applications", "Websites"):
+        for page in ("Applications", "Phone apps", "Websites"):
             admin.sidebar.nav_buttons[page].click()
             self.assertEqual(admin.current_page.content_stack.currentWidget(), admin.current_page.empty_state)
             self.assertFalse(admin.current_page.category_filter.isVisible())
