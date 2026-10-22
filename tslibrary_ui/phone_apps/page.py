@@ -1,6 +1,6 @@
 """Phone apps tab: inventory by name, with no executable or launch behavior."""
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..graphics.icons import admin_icon
@@ -12,6 +12,7 @@ from .models import PhoneApp
 
 
 class PhoneAppsPage(CatalogPage):
+    changed = Signal()
     title = "Phone apps"
     description = "A simple inventory of the phone apps you have."
     empty_title = "Your phone apps, together."
@@ -45,6 +46,7 @@ class PhoneAppsPage(CatalogPage):
         else:
             original.name = updated.name
         self.refresh()
+        self.changed.emit()
 
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
@@ -90,3 +92,4 @@ class PhoneAppsPage(CatalogPage):
     def _remove_phone_app(self, app_id):
         self.phone_apps[:] = [entry for entry in self.phone_apps if entry.id != app_id]
         self.refresh()
+        self.changed.emit()

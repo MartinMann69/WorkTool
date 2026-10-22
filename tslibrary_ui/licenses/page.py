@@ -1,6 +1,6 @@
 """Licenses tab: row rendering, search, and add/edit/delete behavior."""
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..shared.catalog_page import CatalogPage
@@ -12,6 +12,7 @@ from .window import LicenseWindow
 
 
 class LicensesPage(CatalogPage):
+    changed = Signal()
     title = 'Licenses'
     description = 'Keep your license counts and keys organised by item.'
     empty_title = 'Keep your licenses in one place.'
@@ -43,6 +44,7 @@ class LicensesPage(CatalogPage):
     def _save_item(self, dialog):
         item = dialog.item()
         self.items.append(item)
+        self.changed.emit()
         self.refresh_categories()
         self.refresh()
         self.open_licenses(item)
@@ -61,7 +63,7 @@ class LicensesPage(CatalogPage):
         query = self.search.text().strip().casefold()
         category = self.category_filter.currentText()
         visible = [item for item in self.items
-                   if (not query or query in f"{item.name} {item.category}".casefold())
+                   if (not query or query in f"{item.name} {item.category} {item.owner} {item.renewal_date}".casefold())
                    and (category == "All categories" or item.category == category)]
         visible.sort(key=lambda item: item.name.casefold() if self.sort_select.currentIndex()
                      else -self.items.index(item))
@@ -69,6 +71,7 @@ class LicensesPage(CatalogPage):
         for row, item in enumerate(visible):
             name = cell(item.name)
             name.setData(Qt.ItemDataRole.UserRole, item.id)
+            name.setToolTip(f"{item.owner or 'No owner'} · {item.renewal_date or 'No renewal date'} · {item.renewal_status()}")
             self.table.setItem(row, 0, name)
             self.table.setItem(row, 1, cell(item.category))
             self.table.setItem(row, 2, cell(item.available_text, True))
@@ -97,6 +100,10 @@ class LicensesPage(CatalogPage):
         item_word = "item" if count == 1 else "items"
         self.count_label.setText(f"Showing {len(visible)} of {count} {item_word} · "
                                  f"{count_text(available)} available · {count_text(used)} {used_label}")
+        from datetime import date
+        due = [item for item in self.items if item.renewal_date
+               and (date.fromisoformat(item.renewal_date) - date.today()).days <= 30]
+        self.subtitle.setText(self.description + (f" {len(due)} renewal(s) due or overdue within 30 days." if due else ""))
 
     def _open_row(self, row, _column):
         item_id = self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)
@@ -108,6 +115,7 @@ class LicensesPage(CatalogPage):
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.details_changed.connect(self.refresh_categories)
         dialog.changed.connect(self.refresh)
+        dialog.changed.connect(self.changed.emit)
         dialog.open()
 
     def confirm_delete_item(self, item):
@@ -122,3 +130,4 @@ class LicensesPage(CatalogPage):
         self.items[:] = [item for item in self.items if item.id != item_id]
         self.refresh_categories()
         self.refresh()
+        self.changed.emit()

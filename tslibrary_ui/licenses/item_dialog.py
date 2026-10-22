@@ -38,6 +38,19 @@ class ItemDialog(QDialog):
         self.category_edit.setMaxLength(80)
         self.category_edit.setText(item.category if item else "")
         layout.addWidget(self.category_edit)
+        layout.addWidget(caption("Owner / responsible team (optional)", "fieldLabel"))
+        self.owner_edit = QLineEdit(item.owner if item else "")
+        self.owner_edit.setObjectName("dialogInput")
+        self.owner_edit.setAccessibleName("License owner")
+        self.owner_edit.setMaxLength(150)
+        layout.addWidget(self.owner_edit)
+        layout.addWidget(caption("Renewal date (optional, YYYY-MM-DD)", "fieldLabel"))
+        self.renewal_edit = QLineEdit(item.renewal_date if item else "")
+        self.renewal_edit.setObjectName("dialogInput")
+        self.renewal_edit.setAccessibleName("License renewal date")
+        self.renewal_edit.setPlaceholderText("e.g. 2027-04-30")
+        self.renewal_edit.setMaxLength(10)
+        layout.addWidget(self.renewal_edit)
         self.error = caption("", "formError")
         layout.addWidget(self.error)
         buttons = QHBoxLayout()
@@ -58,10 +71,21 @@ class ItemDialog(QDialog):
             self.error.setText("Give the item a name first.")
             self.name_edit.setFocus()
             return
+        if self.renewal_edit.text().strip():
+            from datetime import date
+            try:
+                value = self.renewal_edit.text().strip()
+                if len(value) != 10 or date.fromisoformat(value).isoformat() != value:
+                    raise ValueError()
+            except ValueError:
+                self.error.setText("Enter a date as YYYY-MM-DD, or leave it empty.")
+                self.renewal_edit.setFocus()
+                return
         self.accept()
 
     def item(self):
-        return LibraryItem(*self.details())
+        return LibraryItem(*self.details(), owner=self.owner_edit.text().strip(),
+                           renewal_date=self.renewal_edit.text().strip())
 
     def details(self):
         return (self.name_edit.text().strip(),

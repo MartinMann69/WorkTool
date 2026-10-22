@@ -15,9 +15,10 @@ from ..state import LibrarySession
 from ..styles import load_stylesheets
 from ..websites.page import WebsitesPage
 from .sidebar import AdminSidebar
+from .transfers import AdminDataTools
 
 
-class AdminWindow(QWidget):
+class AdminWindow(AdminDataTools, QWidget):
     back_requested = Signal()
     catalog_changed = Signal()
     LICENSES_PAGE = "Licenses"
@@ -37,6 +38,8 @@ class AdminWindow(QWidget):
         self.websites_page = WebsitesPage(self.session.websites)
         self.applications_page.changed.connect(self.catalog_changed.emit)
         self.websites_page.changed.connect(self.catalog_changed.emit)
+        self.phone_apps_page.changed.connect(self.catalog_changed.emit)
+        self.licenses_page.changed.connect(self.catalog_changed.emit)
         self.full_library_page = LibraryPage(session=self.session)
         self.pages = {
             "Full library": self.full_library_page,
@@ -49,6 +52,7 @@ class AdminWindow(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         self.sidebar = AdminSidebar(self.pages)
+        self._setup_data_tools()
         self.sidebar.page_requested.connect(self.set_page)
         self.sidebar.back_requested.connect(self.back_requested.emit)
         root.addWidget(self.sidebar)
@@ -73,11 +77,13 @@ class AdminWindow(QWidget):
             page.sort_select.setCurrentIndex(self._inventory_sort_index)
         self.sidebar.nav_buttons[name].setChecked(True)
         self.page_stack.setCurrentWidget(page)
-        page.search.clear()
         page.refresh()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         margin = 26 if self.width() < 1150 else 38
+        from ..graphics.shelf import ShelfArtwork
+        for illustration in self.sidebar.findChildren(ShelfArtwork):
+            illustration.setVisible(self.height() >= 790)
         for page in self.pages.values():
             page.content_layout.setContentsMargins(margin, 30, margin, 23)

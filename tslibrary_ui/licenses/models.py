@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from math import inf, isinf
 from uuid import uuid4
+from datetime import date
 
 
 MAX_LICENSE_COUNT = 1_000_000
@@ -21,6 +22,11 @@ class LicenseEntry:
     key: str = ""
     used: int = 0
     unlimited: bool = False
+    keyed: bool = False
+
+    @property
+    def tracks_key(self):
+        return bool(self.key) or self.keyed
 
     def can_change_usage(self, change: int) -> bool:
         """Whether one license can move between the available and used pools."""
@@ -59,6 +65,16 @@ class LibraryItem:
     category: str = "Uncategorised"
     licenses: list[LicenseEntry] = field(default_factory=list)
     id: str = field(default_factory=lambda: uuid4().hex)
+    owner: str = ""
+    renewal_date: str = ""
+
+    def renewal_status(self, today=None):
+        if not self.renewal_date:
+            return "No renewal date"
+        days = (date.fromisoformat(self.renewal_date) - (today or date.today())).days
+        unit = "day" if abs(days) == 1 else "days"
+        return (f"Overdue by {-days} {unit}" if days < 0 else "Due today" if days == 0
+                else f"Due in {days} {unit}")
 
     @property
     def available(self):

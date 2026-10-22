@@ -31,3 +31,11 @@ QScrollBar::handle:vertical { background: #58634b; min-height: 28px; border-radi
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
 QToolTip { background: #292f24; color: #eee8dc; border: 1px solid #535b48; padding: 5px; }
+
+QMenu { background: #232b20; color: #eee8dc; border: 1px solid #5b664b; padding: 6px; font-size: 12px; }
+QMenu::item { padding: 8px 23px; border-radius: 3px; }
+QMenu::item:selected { background: #3b4630; }
+QMenu::separator { height: 1px; background: #4b553e; margin: 5px 10px; }
+QListWidget { background: #1d241c; color: #eee8dc; border: 1px solid #48533b; border-radius: 6px; font-size: 13px; }
+QListWidget::item { padding: 10px; }
+QListWidget::item:selected { background: #3c4931; color: #f0e9d8; }

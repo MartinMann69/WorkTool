@@ -40,7 +40,7 @@ class AdminUiChecks(unittest.TestCase):
         second.close()
         second.deleteLater()
 
-    def test_tab_switch_keeps_sort_and_category_but_clears_search(self):
+    def test_tab_switch_keeps_sort_category_and_search(self):
         admin = AdminWindow(session=LibrarySession(items=[
             LibraryItem("Beta", "Tools"), LibraryItem("Alpha", "Tools"),
             LibraryItem("Other", "Reference"),
@@ -52,10 +52,10 @@ class AdminUiChecks(unittest.TestCase):
         admin.set_page("Websites")
         self.assertEqual(admin.websites_page.sort_select.currentIndex(), 1)
         admin.set_page("Licenses")
-        self.assertEqual(licenses.search.text(), "")
+        self.assertEqual(licenses.search.text(), "Beta")
         self.assertEqual(licenses.category_filter.currentText(), "Tools")
-        self.assertEqual(licenses.table.rowCount(), 2)
-        self.assertEqual(licenses.table.item(0, 0).text(), "Alpha")
+        self.assertEqual(licenses.table.rowCount(), 1)
+        self.assertEqual(licenses.table.item(0, 0).text(), "Beta")
         admin.close()
         admin.deleteLater()
 

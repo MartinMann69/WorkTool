@@ -38,7 +38,9 @@ def catalog_entries(session):
     entries.extend(CatalogEntry(app.id, app.name, "phone_apps", "Mobile app")
                    for app in session.phone_apps)
     entries.extend(CatalogEntry(item.id, item.name, "licenses",
-                               f"{item.category} · {item.available_text} available")
+                               f"{item.category} · {item.available_text} available"
+                               + (f" · {item.owner}" if item.owner else "")
+                               + (f" · {item.renewal_date} · {item.renewal_status()}" if item.renewal_date else ""))
                    for item in session.items)
     return entries
 

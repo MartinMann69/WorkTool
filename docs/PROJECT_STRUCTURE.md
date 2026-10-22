@@ -10,8 +10,10 @@ requirements.txt                Runtime dependency
 tslibrary_ui/
     __init__.py                 Public AdminWindow, LibraryWindow, LoginWindow, MainWindow imports
     app.py                      QApplication, fonts, palette, startup arguments
+    single_instance.py          Exclusive Windows instance and local window activation
     navigation.py               Welcome/main/admin/library transitions and shared session
     main_window.py              User tabs, selection/personal-entry actions, and repository calls
+    transfers.py                Validated catalog/workplace backups and CSV exports
     state.py                    Catalog session and per-user WorkplaceConfig dataclasses
     storage.py                  JSON backend and four-method replacement contract for a DB
     workplace/
@@ -19,7 +21,9 @@ tslibrary_ui/
         cards.py                Inline workplace Open/Edit controls and mouse/keyboard actions
         collection.py           Inline card toggle, check-state model, and mouse/keyboard input
         selection.py            Live sidebar of selected Collection entries
-        models.py               User selections and personal/catalog projections
+        models.py               User selections, local paths, and personal/catalog projections
+        tools.py                Card menus, favorites/groups, repair, and data actions
+        dialogs.py              Quick launcher and workspace-set editor
         launching.py            Explicit browser and Windows executable/shortcut launching
     library/
         window.py               Standalone library window
@@ -168,3 +172,5 @@ The public `from tslibrary_ui import AdminWindow, LoginWindow` imports are uncha
 | `checks/` | `tests/` |
 
 Models and dialogs remain available from feature packages, such as `from tslibrary_ui.licenses import LicenseEntry, LicenseEntryDialog`.
+
+`packaging/` and `scripts/build_windows.ps1` produce the standalone Windows app and Inno Setup installer. Runtime preferences remain outside the installation folder.

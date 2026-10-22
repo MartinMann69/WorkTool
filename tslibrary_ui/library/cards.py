@@ -37,7 +37,7 @@ class CatalogDelegate(QStyledItemDelegate):
         p.drawRoundedRect(QRectF(x, y, 42, 42), 9, 9)
         symbol = entry.icon if entry.icon is not None and not entry.icon.isNull() else self.fallback_icons[entry.kind]
         symbol.paint(p, int(x + 9), int(y + 9), 24, 24)
-        p.setFont(sans(9, .5))
+        p.setFont(sans(10, .3))
         p.setPen(QColor(color))
         p.drawText(QRectF(x + 54, y, rect.width() - 94, 42),
                    Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, entry.type_label.upper())
@@ -45,7 +45,7 @@ class CatalogDelegate(QStyledItemDelegate):
         p.setPen(QColor("#e9e4d6"))
         title = p.fontMetrics().elidedText(entry.name, Qt.TextElideMode.ElideRight, int(rect.width() - 42))
         p.drawText(QRectF(x, y + 62, rect.width() - 42, 24), Qt.AlignmentFlag.AlignVCenter, title)
-        p.setFont(sans(11))
+        p.setFont(sans(12))
         p.setPen(QColor("#a1ac92"))
         detail = p.fontMetrics().elidedText(entry.detail, Qt.TextElideMode.ElideRight, int(rect.width() - 42))
         p.drawText(QRectF(x, y + 95, rect.width() - 42, 20), Qt.AlignmentFlag.AlignVCenter, detail)

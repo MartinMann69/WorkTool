@@ -2,21 +2,25 @@
 
 The rest of the application uses only Repository's four methods and the
 LibrarySession / WorkplaceConfig dataclasses, never JSON or filesystem paths.
-Icons are reconstructed locally and are not persisted. License keys and the
-phone/license inventories are outside this app/website catalog's scope.
+Icons are reconstructed locally and are not persisted. License counts, owners,
+renewal dates, and tracking modes are saved, but license key values never are.
 """
 
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 from typing import Protocol
+from datetime import date
 
 from .applications.icons import executable_icon
 from .applications.models import Application
 from .state import LibrarySession, WorkplaceConfig
 from .websites.models import Website
 from .websites.urls import normalize_website_url
+from .licenses.models import LibraryItem, LicenseEntry, MAX_LICENSE_COUNT
+from .phone_apps.models import PhoneApp
 
 
 class StorageError(Exception):
@@ -76,6 +80,86 @@ def _site_records(sites):
     return [dict(id=site.id, name=site.name, url=site.url) for site in sites]
 
 
+def _bool(data, field, default=False):
+    value = data.get(field, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"'{field}' must be a boolean.")
+    return value
+
+
+def _mapping(data, field, *, lists=False):
+    value = data.get(field, {})
+    if not isinstance(value, dict) or any(not isinstance(key, str) or not key.strip() for key in value):
+        raise ValueError(f"'{field}' must be an object with non-empty names.")
+    if lists:
+        return {key: _ids({"ids": ids}, "ids") for key, ids in value.items()}
+    if any(not isinstance(item, str) or not item.strip() for item in value.values()):
+        raise ValueError(f"'{field}' must contain non-empty strings.")
+    return dict(value)
+
+
+def catalog_data(session):
+    """Serializable inventory and renewal metadata; never serialize key values."""
+    return dict(version=1, applications=_app_records(session.applications),
+                websites=_site_records(session.websites),
+                phone_apps=[dict(id=app.id, name=app.name) for app in session.phone_apps],
+                items=[dict(id=item.id, name=item.name, category=item.category, owner=item.owner,
+                            renewal_date=item.renewal_date, licenses=[dict(
+                                label=entry.label, available=entry.available, used=entry.used,
+                                unlimited=entry.unlimited, keyed=entry.tracks_key)
+                                for entry in item.licenses]) for item in session.items])
+
+
+def decode_catalog(data):
+    session = LibrarySession(applications=_apps(data, "applications"), websites=_sites(data, "websites"),
+                             phone_apps=[PhoneApp(_text(app, "name"), _text(app, "id"))
+                                         for app in _records(data, "phone_apps")])
+    for item in _records(data, "items"):
+        renewal = _text(item, "renewal_date", allow_empty=True)
+        if renewal:
+            date.fromisoformat(renewal)
+        entries = item.get("licenses", [])
+        if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
+            raise ValueError("'licenses' must be a list of objects.")
+        licenses = []
+        for entry in entries:
+            for field in ("available", "used"):
+                value = entry.get(field)
+                if type(value) is not int or not 0 <= value <= MAX_LICENSE_COUNT:
+                    raise ValueError(f"'{field}' must be a valid license count.")
+            unlimited, keyed = _bool(entry, "unlimited"), _bool(entry, "keyed")
+            if unlimited and not keyed:
+                raise ValueError("Unlimited entries must track a key.")
+            licenses.append(LicenseEntry(_text(entry, "label"), entry["available"], used=entry["used"],
+                                         unlimited=unlimited, keyed=keyed))
+        session.items.append(LibraryItem(_text(item, "name"), _text(item, "category"), licenses,
+                                         _text(item, "id"), _text(item, "owner", allow_empty=True), renewal))
+    return session
+
+
+def workplace_data(config):
+    return dict(version=1, application_ids=list(dict.fromkeys(config.application_ids)),
+                website_ids=list(dict.fromkeys(config.website_ids)),
+                personal_applications=_app_records(config.personal_applications),
+                personal_websites=_site_records(config.personal_websites),
+                favorites=config.favorites, groups=config.groups, launch_sets=config.launch_sets,
+                application_overrides=config.application_overrides,
+                start_in_workplace=config.start_in_workplace, view_mode=config.view_mode)
+
+
+def decode_workplace(data):
+    mode = data.get("view_mode", "cards")
+    if mode not in ("cards", "list"):
+        raise ValueError("'view_mode' must be cards or list.")
+    return WorkplaceConfig(
+        application_ids=_ids(data, "application_ids"), website_ids=_ids(data, "website_ids"),
+        personal_applications=_apps(data, "personal_applications"), personal_websites=_sites(data, "personal_websites"),
+        favorites=_ids(data, "favorites"), groups=_mapping(data, "groups", lists=True),
+        launch_sets=_mapping(data, "launch_sets", lists=True),
+        application_overrides=_mapping(data, "application_overrides"),
+        start_in_workplace=_bool(data, "start_in_workplace"), view_mode=mode)
+
+
 class JsonRepository:
     def __init__(self, catalog_path: Path, config_path: Path):
         self.catalog_path = Path(catalog_path)
@@ -122,31 +206,24 @@ class JsonRepository:
                     pass
 
     def load_catalog(self):
-        return self._read(self.catalog_path, lambda data: LibrarySession(
-            applications=_apps(data, "applications"), websites=_sites(data, "websites")))
+        return self._read(self.catalog_path, decode_catalog)
 
     def save_catalog(self, session):
-        self._write(self.catalog_path, dict(version=1, applications=_app_records(session.applications),
-                                           websites=_site_records(session.websites)))
+        self._write(self.catalog_path, catalog_data(session))
 
     def load_workplace(self):
-        return self._read(self.config_path, lambda data: WorkplaceConfig(
-            application_ids=_ids(data, "application_ids"), website_ids=_ids(data, "website_ids"),
-            personal_applications=_apps(data, "personal_applications"),
-            personal_websites=_sites(data, "personal_websites")))
+        return self._read(self.config_path, decode_workplace)
 
     def save_workplace(self, config):
-        self._write(self.config_path, dict(
-            version=1, application_ids=list(dict.fromkeys(config.application_ids)),
-            website_ids=list(dict.fromkeys(config.website_ids)),
-            personal_applications=_app_records(config.personal_applications),
-            personal_websites=_site_records(config.personal_websites)))
+        self._write(self.config_path, workplace_data(config))
 
 
 def create_repository() -> Repository:
     """The single backend switch; environment paths also support testing/deployment."""
     catalog = Path(os.environ.get("TSLIBRARY_CATALOG_PATH", str(
-        Path(__file__).resolve().parent.parent / "data" / "catalog.json")))
+        (Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "TSLibrary" / "catalog.json")
+        if getattr(sys, "frozen", False)
+        else Path(__file__).resolve().parent.parent / "data" / "catalog.json")))
     user_root = Path(os.environ.get("APPDATA") or str(Path.home() / ".config"))
     config = Path(os.environ.get("TSLIBRARY_CONFIG_PATH", str(user_root / "TSLibrary" / "workplace.json")))
     return JsonRepository(catalog, config)

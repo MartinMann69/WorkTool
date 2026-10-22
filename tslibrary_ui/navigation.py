@@ -1,7 +1,7 @@
 """UI preview navigation only. This controller does not authenticate admins."""
 
-from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import QObject, Qt
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from .admin import AdminWindow
 from .library import LibraryWindow
@@ -31,6 +31,19 @@ class PreviewController(QObject):
         self.welcome.open_requested.connect(self.show_main)
         self.admin.back_requested.connect(self.show_welcome)
         self.library.back_requested.connect(self.show_welcome)
+
+    def activate_current_window(self):
+        """Restore the current page or dialog when TSLibrary is opened again."""
+        window = QApplication.activeModalWidget() or QApplication.activeWindow()
+        if window is None or not window.isVisible():
+            window = next((candidate for candidate in (
+                self.main_window, self.admin, self.library, self.welcome)
+                if candidate.isVisible()), self.welcome)
+        window.setWindowState(window.windowState() & ~Qt.WindowState.WindowMinimized)
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        QApplication.alert(window)
 
     def show_admin(self, _username="", _password=""):
         # This is a layout preview, not an authentication or authorization gate.
@@ -70,8 +83,9 @@ class PreviewController(QObject):
         self.main_window.activateWindow()
 
     def _catalog_status(self, text):
-        for page in (self.admin.applications_page, self.admin.websites_page):
-            page.storage_status.setText(text)
+        for page in (self.admin.applications_page, self.admin.websites_page,
+                     self.admin.phone_apps_page, self.admin.licenses_page):
+            page.storage_status.setText(text + (" · KEYS SESSION ONLY" if page is self.admin.licenses_page else ""))
 
     def _save_catalog(self):
         if self.repository is None:

@@ -17,11 +17,12 @@ from .storage import StorageError
 from .styles import load_stylesheets
 from .websites.dialogs import WebsiteDialog
 from .workplace.launching import ResourceLauncher
-from .workplace.models import resolve_entry, workplace_entries
+from .workplace.models import resolve_entry, workplace_entries, effective_application, entry_key
 from .workplace.page import WorkplacePage
+from .workplace.tools import WorkplaceTools
 
 
-class MainWindow(QMainWindow):
+class MainWindow(WorkplaceTools, QMainWindow):
     back_requested = Signal()
 
     def __init__(self, parent=None, *, session=None, config=None, repository=None, launcher=None):
@@ -50,8 +51,6 @@ class MainWindow(QMainWindow):
         header = QHBoxLayout()
         header.addWidget(BrandMark())
         header.addStretch()
-        header.addWidget(caption("A WORKPLACE OF YOUR OWN", "workplaceEyebrow", wrap=False))
-        header.addSpacing(18)
         back = action("Back to welcome", "workplaceSecondary")
         back.setIcon(admin_icon("back"))
         back.clicked.connect(self.back_requested.emit)
@@ -75,9 +74,12 @@ class MainWindow(QMainWindow):
             page.remove_requested.connect(self.remove_entry)
             page.open_requested.connect(self.open_entry)
             page.refresh_requested.connect(self.reload_catalog)
+            page.context_requested.connect(self.show_entry_menu)
+            page.view_requested.connect(self.set_view_mode)
         self.websites_page = self.pages["websites"]
         self.applications_page = self.pages["applications"]
         self.collection_page = self.pages["collection"]
+        self._setup_tools(header)
         root.addWidget(self.tabs, 1)
         footer = QHBoxLayout()
         self.summary_label = caption("", "workplaceMuted", wrap=False)
@@ -90,6 +92,8 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def refresh(self, *_):
+        if hasattr(self, "startup_action"):
+            self.startup_action.setChecked(self.config.start_in_workplace)
         for page in self.pages.values():
             page.config = self.config
             page.refresh()
@@ -154,6 +158,8 @@ class MainWindow(QMainWindow):
         if entry and original is None:
             self.refresh()
             return
+        if original is not None and kind == "applications":
+            original = effective_application(original, self.config, source="personal")
         dialog = (WebsiteDialog(self, website=original) if kind == "websites"
                   else ApplicationDialog(self, application=original))
         noun = "website" if kind == "websites" else "application"
@@ -173,7 +179,10 @@ class MainWindow(QMainWindow):
             records = [record if item.id == entry.id else item for item in records]
         else:
             records.append(record)
-        if self._commit(replace(self.config, **{field: records})):
+        overrides = dict(self.config.application_overrides)
+        if entry and kind == "applications":
+            overrides.pop(entry_key(entry), None)
+        if self._commit(replace(self.config, **{field: records}, application_overrides=overrides)):
             self.statusBar().showMessage(f"Saved “{record.name}” to your workplace.", 4500)
             dialog.deleteLater()
         else:
@@ -196,7 +205,12 @@ class MainWindow(QMainWindow):
     def _remove_personal(self, entry):
         field = "personal_websites" if entry.kind == "websites" else "personal_applications"
         records = [item for item in getattr(self.config, field) if item.id != entry.id]
-        self._commit(replace(self.config, **{field: records}))
+        key = entry_key(entry)
+        self._commit(replace(self.config, **{field: records},
+            favorites=[value for value in self.config.favorites if value != key],
+            groups={name: [value for value in keys if value != key] for name, keys in self.config.groups.items()},
+            launch_sets={name: [value for value in keys if value != key] for name, keys in self.config.launch_sets.items()},
+            application_overrides={name: value for name, value in self.config.application_overrides.items() if name != key}))
 
     def open_entry(self, entry):
         record = resolve_entry(self.session, self.config, entry)
@@ -207,7 +221,7 @@ class MainWindow(QMainWindow):
             if entry.kind == "websites":
                 self.launcher.open_website(record)
             else:
-                self.launcher.open_application(record)
+                self.launcher.open_application(effective_application(record, self.config, source=entry.source))
         except (OSError, ValueError) as error:
             QMessageBox.warning(self, f"Could not open {entry.name}", str(error))
             return

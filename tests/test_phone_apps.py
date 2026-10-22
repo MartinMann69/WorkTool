@@ -130,7 +130,7 @@ class PhoneAppChecks(unittest.TestCase):
         self.admin.set_page("Applications")
         self.assertEqual(self.admin.applications_page.table.item(0, 0).text(), "Desktop app")
         self.admin.set_page("Phone apps")
-        self.assertEqual(self.page.search.text(), "")
+        self.assertEqual(self.page.search.text(), "missing")
         self.assertEqual(self.page.sort_select.currentIndex(), 1)
         second = AdminWindow(session=self.admin.session)
         try:

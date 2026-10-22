@@ -20,13 +20,21 @@ Open administration directly:
 .venv\Scripts\python main.py --admin
 ```
 
+On Windows, only one TSLibrary process can run per PC, including launches from
+different project copies or Windows sessions. Opening it again restores the
+existing window and keeps its current page. Duplicate `--admin` / `--library`
+launches also restore that window rather than changing its mode. If another
+Windows session owns it, switch to that session. Closing the app releases the
+instance; Windows also releases it after a crash. Tests and screenshots use
+isolated windows without reserving the normal app instance.
+
 Choose **Open TSLibrary** without signing in. The user window has three tabs:
 
 - **Websites**: selected Collection links and your own personal websites. Each card has an **Open website** button to open it in your browser. Double-click also works.
 - **Applications**: selected Collection tools and your own personal apps. Each card has an **Open application** button to launch the executable or shortcut with its saved arguments. Double-click also works.
 - **Collection**: all admin-managed applications and websites. Use **Add to workplace** or **Remove from workplace** inside each card. A check marks saved selections, and a live **Selected** list on the right shows all chosen Collection entries, including those hidden by search/type filters. Remove an entry directly with its **×** sidebar button. Keyboard users can focus a card and press **Space** to toggle it, or focus a sidebar entry and press **Delete** to remove it. Removing a selection keeps the admin entry. **Refresh collection** picks up changes made in another app instance.
 
-Use **Add personal website/application** to add your own entries, and the **Edit** button inside a personal card to update it. Websites and Applications have no bottom action bar or Remove buttons; manage Collection selections from Collection. Keyboard users can press **Space** or **Enter** to open a focused workplace card, or **F2** to edit a personal entry. Normal users have no accounts: each Windows user's selected IDs and personal entries are saved separately.
+Use **Add personal website/application** to add your own entries, and the **Edit** button inside a personal card to update it. The three-dot menu (or right-click / keyboard context menu) also provides personal-entry removal, favorites, group membership, and local app-path repair. Delete asks for confirmation before removing a personal entry. Websites and Applications have no bottom action bar or Remove buttons; manage Collection selections from Collection. Keyboard users can press **Space** or **Enter** to open a focused workplace card, or **F2** to edit a personal entry. Normal users have no accounts: each Windows user's selected IDs and personal entries are saved separately.
 
 To browse the separate read-only overview of all four admin inventories directly, use:
 
@@ -40,9 +48,42 @@ Administration also includes a **Full library** sidebar tab with the same combin
 
 On macOS/Linux, use `.venv/bin/python` instead. Georgia, Segoe UI, and Yu Mincho are used when installed, with Qt font fallback.
 
-Admin credentials are still not checked. App/website edits save automatically to the shared `data/catalog.json`. Each user's selections and personal entries save to `%APPDATA%\TSLibrary\workplace.json`. Files are created on the first change. Launching happens only through an explicit workplace Open action or double-click; adding/editing entries does not open them. The phone-app and license inventories remain session-only, and license keys are not written to these JSON files. Sample entries are used only in screenshots.
+Admin credentials are still not checked. App/website edits save automatically to the shared `data/catalog.json`. Each user's selections and personal entries save to `%APPDATA%\TSLibrary\workplace.json`. Files are created on the first change. Launching happens only through an explicit workplace Open action or double-click; adding/editing entries does not open them. Phone apps, license counts, owners, and renewal dates also save automatically. License key values stay in memory only and are excluded from JSON files and backups; after restarting, keyed entries show that the key needs to be re-entered. Sample entries are used only in screenshots.
 
 The storage boundary is [storage.py](tslibrary_ui/storage.py). Replace its implementation and factory to use a database; windows and feature pages do not read or write JSON themselves. See [storage and config](docs/STORAGE.md) for the four-method contract, schemas, and deployment paths.
+
+## Everyday workplace tools
+
+- **Find tools / Ctrl+K** searches apps and websites across the shared catalog and your workplace. Up/Down chooses a result; Enter opens it. No tools launch while searching.
+- Use each workplace card's **three-dot menu** to pin a **Favorite**, create or join a group, edit/remove a personal entry, or **Locate application on this PC**. Favorites sort first. The group selector filters by Favorites or a custom group. Tools includes group rename/delete.
+- Choose **Cards / List** for a compact list view. The preference applies to Websites, Applications, and Collection and is saved per user.
+- Missing executable/shortcut paths show **Unavailable on this PC**. Locating a replacement saves a local override, preserves launch arguments, and keeps the shared catalog unchanged. The same override is used by cards, quick search, and workspace sets.
+- **Tools → Workspace sets** creates, edits, deletes, and launches named groups of workplace tools. Opening a set asks for confirmation. Entries removed from the current workplace are skipped; selecting a set shows how many saved references are unavailable. Saving an edited set replaces its selections.
+- **Tools → Start directly in my workplace** skips welcome next time. Back to welcome still provides admin access. `main.py --welcome` forces the welcome screen regardless of this preference.
+- Admin tabs keep their individual search terms when switching pages. Search, filters, cards, and secondary labels use larger text.
+- Licensed items now have an optional **owner / responsible team** and an optional **renewal date**. The license page highlights renewals due within 30 days or overdue; details and the full-library search include this metadata. These are in-app reminders, not background notifications.
+
+## Backup, restore, and export
+
+**Tools** exports/restores the current user's workplace preferences and personal entries. Administration's **Data tools** exports/restores the shared catalog and exports a CSV inventory. Restore validates the whole backup before applying it, asks for confirmation, and writes a timestamped recovery backup beside the chosen file first. Backups preserve record IDs, favorites, groups, workspace sets, local paths, and preferences. Local paths may need repairing on a different PC.
+
+Catalog backups and CSV exports include phone apps and license metadata/counts, but **never license key values**. Key storage, real admin authentication, and concurrent editing from separate PCs are deferred.
+
+## Windows app and installer
+
+The packaged build needs no Python installation:
+
+- `dist/TSLibrary/TSLibrary.exe` runs the standalone app. Keep its `_internal` folder beside it.
+- `dist/TSLibrary-Setup-0.2.0.exe` installs it for the current Windows user, adds a Start menu shortcut, optionally adds a desktop shortcut, and provides an uninstaller. Updating/uninstalling the program keeps catalog and workplace data outside the installation folder.
+- Packaged catalog data defaults to `%LOCALAPPDATA%\TSLibrary\catalog.json`. `TSLIBRARY_CATALOG_PATH` still selects an explicit shared catalog; user preferences stay in `%APPDATA%\TSLibrary\workplace.json`. To move development data into an installed copy, export and restore a catalog backup.
+
+Rebuild with Python dependencies from `requirements.txt` and `requirements-build.txt`, plus [Inno Setup 6](https://jrsoftware.org/isinfo.php):
+
+```powershell
+.\scripts\build_windows.ps1 -InnoCompiler 'C:\Path\To\Inno Setup 6\ISCC.exe'
+```
+
+The build scripts create the icon from the project's own mark and bundle styles and installed dependency license files. `TSLibrary.exe --self-test` renders its windows with in-memory data without opening the real catalog or reserving the normal app instance. Set `QT_QPA_PLATFORM=offscreen` for an unattended check. The development installer is unsigned; production signing is a separate release step.
 
 ## Find the right file
 

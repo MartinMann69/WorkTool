@@ -11,7 +11,7 @@ from ..graphics.shelf import ShelfArtwork
 from ..library.models import CatalogModel, filter_entries
 from ..shared.controls import FilterCombo
 from ..shared.forms import action, caption
-from .models import collection_entries, workplace_entries
+from .models import collection_entries, workplace_entries, entry_key
 from .collection import CollectionGrid, CollectionModel
 from .selection import SelectionSidebar
 from .cards import WorkplaceGrid
@@ -25,6 +25,8 @@ class WorkplacePage(QWidget):
     edit_requested = Signal(object)
     remove_requested = Signal(object)
     open_requested = Signal(object)
+    context_requested = Signal(object, object)
+    view_requested = Signal(str)
 
     def __init__(self, kind, session, config, parent=None):
         super().__init__(parent)
@@ -86,9 +88,21 @@ class WorkplacePage(QWidget):
         root.addLayout(toolbar)
         root.addSpacing(12)
         status = QHBoxLayout()
+        status.setSpacing(10)
         self.count_label = caption("", "workplaceMuted", wrap=False)
         status.addWidget(self.count_label)
         status.addStretch()
+        self.group_filter = FilterCombo()
+        self.group_filter.setAccessibleName("Filter workplace group")
+        self.group_filter.setFixedSize(150, 33)
+        self.group_filter.setVisible(not self.collection)
+        status.addWidget(self.group_filter)
+        self.view_select = FilterCombo()
+        self.view_select.addItem("Cards", "cards")
+        self.view_select.addItem("List", "list")
+        self.view_select.setAccessibleName("Workplace view")
+        self.view_select.setFixedSize(85, 33)
+        status.addWidget(self.view_select)
         self.browse_button = action("Choose from Collection", "workplaceLink")
         self.browse_button.setMinimumHeight(25)
         self.browse_button.setVisible(not self.collection)
@@ -105,6 +119,8 @@ class WorkplacePage(QWidget):
         else:
             self.grid.open_requested.connect(self.open_requested.emit)
             self.grid.edit_requested.connect(self.edit_requested.emit)
+            self.grid.remove_requested.connect(self.remove_requested.emit)
+            self.grid.context_requested.connect(self.context_requested.emit)
         self.grid.setModel(self.model)
         self.grid.activated.connect(self._activated)
         self.empty_state = QFrame()
@@ -141,6 +157,8 @@ class WorkplacePage(QWidget):
         self.search.textChanged.connect(self.refresh)
         self.type_filter.currentIndexChanged.connect(self.refresh)
         self.sort_select.currentIndexChanged.connect(self.refresh)
+        self.group_filter.currentIndexChanged.connect(self.refresh)
+        self.view_select.currentIndexChanged.connect(lambda: self.view_requested.emit(self.view_select.currentData()))
         self.search_shortcut = QShortcut(QKeySequence.StandardKey.Find, self)
         self.search_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.search_shortcut.activated.connect(self.search.setFocus)
@@ -160,6 +178,27 @@ class WorkplacePage(QWidget):
             self.selection_sidebar.refresh(entries)
         visible = filter_entries(entries, self.search.text(), self.type_filter.currentData()
                                  if self.collection else "", self.sort_select.currentData())
+        if not self.collection:
+            choice = self.group_filter.currentData()
+            self.group_filter.blockSignals(True)
+            self.group_filter.clear()
+            self.group_filter.addItem("All groups", "")
+            self.group_filter.addItem("Favorites", "favorites")
+            for name in sorted(self.config.groups, key=str.casefold):
+                self.group_filter.addItem(name, "group:" + name)
+            index = self.group_filter.findData(choice)
+            self.group_filter.setCurrentIndex(max(0, index))
+            self.group_filter.blockSignals(False)
+            choice = self.group_filter.currentData() or ""
+            allowed = (set(self.config.favorites) if choice == "favorites" else
+                       set(self.config.groups.get(choice[6:], [])) if choice.startswith("group:") else None)
+            if allowed is not None:
+                visible = [entry for entry in visible if entry_key(entry) in allowed]
+            visible.sort(key=lambda entry: not entry.favorite)
+        self.view_select.blockSignals(True)
+        self.view_select.setCurrentIndex(1 if self.config.view_mode == "list" else 0)
+        self.view_select.blockSignals(False)
+        self.grid.set_dense(self.config.view_mode == "list")
         self.model.replace(visible)
         self.count_label.setText(f"{len(visible)} of {len(entries)} {'available' if self.collection else 'in your workplace'}")
         self.stack.setCurrentWidget(self.grid if visible else self.empty_state)

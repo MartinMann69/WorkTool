@@ -1,6 +1,6 @@
 """Collection cards with an inline, keyboard-accessible workplace toggle."""
 
-from PySide6.QtCore import QPersistentModelIndex, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPersistentModelIndex, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPainterPath, QPen
 
 from ..graphics.typography import sans
@@ -87,10 +87,26 @@ class CollectionGrid(CatalogGrid):
         super().__init__(parent)
         self.setItemDelegate(CollectionDelegate(self))
         self._pressed_index = QPersistentModelIndex()
+        self.dense = False
+
+    def set_dense(self, dense):
+        if self.dense == dense:
+            return
+        self.dense = dense
+        self.row_height = 80 if dense else 216
+        self.setItemDelegate(CollectionListDelegate(self) if dense else CollectionDelegate(self))
+        self._fit_columns()
+        self.doItemsLayout()
+
+    def _fit_columns(self):
+        if getattr(self, "dense", False):
+            self.setGridSize(QSize(max(1, self.viewport().width() - 18), self.row_height))
+        else:
+            super()._fit_columns()
 
     def _action_index(self, point):
         index = self.indexAt(point)
-        if index.isValid() and CollectionDelegate.action_rect(self.visualRect(index)).contains(point):
+        if index.isValid() and self.itemDelegate().action_rect(self.visualRect(index)).contains(point):
             return index
         return None
 
@@ -140,3 +156,39 @@ class CollectionGrid(CatalogGrid):
         current = index.data(Qt.ItemDataRole.CheckStateRole)
         self.model().setData(index, Qt.CheckState.Unchecked if current == Qt.CheckState.Checked
                              else Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
+
+
+class CollectionListDelegate(CatalogDelegate):
+    def editorEvent(self, event, model, option, index):
+        return False
+
+    @staticmethod
+    def action_rect(rect):
+        return QRectF(rect.right() - 164, rect.top() + 16, 147, 35)
+
+    def paint(self, p, option, index):
+        entry = index.data(Qt.ItemDataRole.UserRole)
+        if entry is None:
+            return
+        p.save()
+        p.setRenderHint(p.RenderHint.Antialiasing)
+        rect = QRectF(option.rect).adjusted(0, 0, -8, -8)
+        p.setBrush(QColor("#253120" if entry.added else "#1d241c"))
+        p.setPen(QPen(QColor("#58684a" if entry.added else "#3e4935"), 1))
+        p.drawRoundedRect(rect, 6, 6)
+        symbol = entry.icon if entry.icon is not None and not entry.icon.isNull() else self.fallback_icons[entry.kind]
+        symbol.paint(p, int(rect.left() + 14), int(rect.top() + 20), 26, 26)
+        width = max(1, int(rect.width() - 235))
+        for text, y, size, color in [(entry.name, 10, 14, "#eee8dc"), (entry.detail, 37, 12, "#b2bca5")]:
+            p.setFont(sans(size))
+            p.setPen(QColor(color))
+            p.drawText(QRectF(rect.left() + 54, rect.top() + y, width, 24), Qt.AlignmentFlag.AlignVCenter,
+                       p.fontMetrics().elidedText(text, Qt.TextElideMode.ElideRight, width))
+        button = self.action_rect(option.rect)
+        p.setBrush(QColor("#35452c" if entry.added else "#2b3324"))
+        p.setPen(QPen(QColor("#8a9b75" if entry.added else "#a18c66"), 1))
+        p.drawRoundedRect(button, 5, 5)
+        p.setFont(sans(12))
+        p.setPen(QColor("#e2d5b8"))
+        p.drawText(button, Qt.AlignmentFlag.AlignCenter, "Remove" if entry.added else "Add to workplace")
+        p.restore()

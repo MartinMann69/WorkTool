@@ -32,7 +32,7 @@ class LicenseWindow(QDialog):
         details = QVBoxLayout()
         details.setSpacing(7)
         self.item_title = caption(item.name, "dialogHeading")
-        self.category_label = caption(item.category)
+        self.category_label = caption(self._item_details())
         details.addWidget(self.item_title)
         details.addWidget(self.category_label)
         details_row.addLayout(details, 1)
@@ -61,7 +61,7 @@ class LicenseWindow(QDialog):
             self.table.setColumnWidth(column, width)
         layout.addWidget(self.table, 1)
         bottom = QHBoxLayout()
-        session_note = caption("Preview session · changes are not saved.", "adminMuted")
+        session_note = caption("License key values stay in this session and are never saved.", "adminMuted")
         session_note.setWordWrap(False)
         bottom.addWidget(session_note)
         bottom.addStretch()
@@ -99,11 +99,21 @@ class LicenseWindow(QDialog):
 
     def _save_details(self, dialog):
         self.item.name, self.item.category = dialog.details()
+        self.item.owner = dialog.owner_edit.text().strip()
+        self.item.renewal_date = dialog.renewal_edit.text().strip()
         self.setWindowTitle(f"TSLibrary — Manage licenses · {self.item.name}")
         self.item_title.setText(self.item.name)
-        self.category_label.setText(self.item.category)
+        self.category_label.setText(self._item_details())
         self.details_changed.emit()
         self.changed.emit()
+
+    def _item_details(self):
+        details = [self.item.category]
+        if self.item.owner:
+            details.append(self.item.owner)
+        if self.item.renewal_date:
+            details.append(f"Renews {self.item.renewal_date} · {self.item.renewal_status()}")
+        return " · ".join(details)
 
     def _open_editor(self, index=None):
         dialog = LicenseEntryDialog(self, self.item.licenses[index] if index is not None else None)
@@ -127,7 +137,7 @@ class LicenseWindow(QDialog):
         for row, entry in enumerate(self.item.licenses):
             self.table.setItem(row, 0, cell(entry.label))
             self.table.setItem(row, 1, cell("Unlimited key" if entry.unlimited else
-                                           "Count + license key" if entry.key else "Count only"))
+                                           "Count + license key" if entry.tracks_key else "Count only"))
             self.table.setItem(row, 2, cell(entry.available_text, True))
             usage = QWidget()
             usage_row = QHBoxLayout(usage)
@@ -171,7 +181,7 @@ class LicenseWindow(QDialog):
                 self.table.setCellWidget(row, 4, key_shell)
             else:
                 self.table.removeCellWidget(row, 4)
-                self.table.setItem(row, 4, cell("—"))
+                self.table.setItem(row, 4, cell("Not saved · re-enter key" if entry.tracks_key else "—"))
             edit = action("Edit")
             edit.setMinimumHeight(32)
             edit.clicked.connect(lambda checked, index=row: self._open_editor(index))

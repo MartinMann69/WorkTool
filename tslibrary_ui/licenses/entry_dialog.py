@@ -12,6 +12,7 @@ from .models import LicenseEntry, MAX_LICENSE_COUNT
 class LicenseEntryDialog(QDialog):
     def __init__(self, parent=None, entry=None):
         super().__init__(parent)
+        self._restored_key = bool(entry and entry.tracks_key and not entry.key)
         self.setObjectName("inventoryDialog")
         self.setWindowTitle("TSLibrary — Edit license entry" if entry else "TSLibrary — Add license entry")
         self.setMinimumWidth(500)
@@ -109,8 +110,8 @@ class LicenseEntryDialog(QDialog):
         layout.addLayout(buttons)
         self.mode_select.currentIndexChanged.connect(self._mode_changed)
         self.unlimited_checkbox.toggled.connect(self._usage_mode_changed)
-        self.mode_select.setCurrentIndex(1 if entry and entry.key else 0)
-        self.unlimited_checkbox.setChecked(bool(entry and entry.key and entry.unlimited))
+        self.mode_select.setCurrentIndex(1 if entry and entry.tracks_key else 0)
+        self.unlimited_checkbox.setChecked(bool(entry and entry.tracks_key and entry.unlimited))
         self._mode_changed()
         self.label_edit.setFocus()
 
@@ -142,7 +143,7 @@ class LicenseEntryDialog(QDialog):
             self.error.setText("Give this license entry a label first.")
             self.label_edit.setFocus()
             return
-        if self.mode_select.currentIndex() == 1 and not self.key_edit.text().strip():
+        if self.mode_select.currentIndex() == 1 and not self.key_edit.text().strip() and not self._restored_key:
             self.error.setText("Enter a license key, or choose Count only.")
             self.key_edit.setFocus()
             return
@@ -152,7 +153,8 @@ class LicenseEntryDialog(QDialog):
         return LicenseEntry(self.label_edit.text().strip(), self.available_spin.value(),
                             self.key_edit.text().strip() if self.mode_select.currentIndex() == 1 else "",
                             self.used_spin.value(),
-                            self.mode_select.currentIndex() == 1 and self.unlimited_checkbox.isChecked())
+                            self.mode_select.currentIndex() == 1 and self.unlimited_checkbox.isChecked(),
+                            self.mode_select.currentIndex() == 1)
 
     def _update_total(self, *_):
         self.total_label.setText("Unlimited uses · usage is not tracked." if self.unlimited_checkbox.isChecked()

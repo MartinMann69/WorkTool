@@ -55,3 +55,19 @@ class MainWindowChecks(unittest.TestCase):
             destination()
             self.app.processEvents()
             self.assertFalse(controller.main_window.isVisible())
+
+    def test_duplicate_activation_restores_current_window_and_preserves_page(self):
+        controller = self.controller
+        controller.show_main()
+        controller.main_window.tabs.setCurrentIndex(2)
+        controller.main_window.showMaximized()
+        controller.main_window.showMinimized()
+        self.app.processEvents()
+        controller.activate_current_window()
+        self.app.processEvents()
+        self.assertTrue(controller.main_window.isVisible())
+        self.assertFalse(controller.main_window.isMinimized())
+        self.assertTrue(controller.main_window.isMaximized())
+        self.assertEqual(controller.main_window.tabs.currentIndex(), 2)
+        self.assertFalse(controller.admin.isVisible())
+        self.assertFalse(controller.welcome.isVisible())

@@ -8,3 +8,4 @@ dist/
 /data/catalog.json
 /data/.*.tmp
 .test-temp/
+.build-tools/
