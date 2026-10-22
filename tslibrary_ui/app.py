@@ -5,9 +5,10 @@ from pathlib import Path
 import sys
 
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
 from .navigation import PreviewController
+from .storage import StorageError, create_repository
 
 
 def create_app() -> QApplication:
@@ -41,7 +42,11 @@ def create_app() -> QApplication:
 
 def main() -> int:
     app = create_app()
-    controller = PreviewController()
+    try:
+        controller = PreviewController(repository=create_repository())
+    except StorageError as error:
+        QMessageBox.critical(None, "Could not load TSLibrary", str(error))
+        return 1
     if "--admin" in sys.argv:
         controller.show_admin()
     elif "--library" in sys.argv:

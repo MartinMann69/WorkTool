@@ -1,4 +1,4 @@
-"""Session-only data shared by administration and the read-only library."""
+"""Shared catalog data and each user's separate workplace preferences."""
 
 from dataclasses import dataclass, field
 
@@ -14,3 +14,11 @@ class LibrarySession:
     applications: list[Application] = field(default_factory=list)
     websites: list[Website] = field(default_factory=list)
     phone_apps: list[PhoneApp] = field(default_factory=list)
+
+
+@dataclass
+class WorkplaceConfig:
+    application_ids: list[str] = field(default_factory=list)
+    website_ids: list[str] = field(default_factory=list)
+    personal_applications: list[Application] = field(default_factory=list)
+    personal_websites: list[Website] = field(default_factory=list)

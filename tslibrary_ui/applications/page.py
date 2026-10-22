@@ -1,6 +1,6 @@
 """Applications tab: row rendering, search, and add/edit/delete behavior."""
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..shared.catalog_page import CatalogPage
@@ -11,6 +11,7 @@ from .dialogs import ApplicationDialog, DeleteApplicationDialog
 
 
 class ApplicationsPage(CatalogPage):
+    changed = Signal()
     title = 'Applications'
     description = 'Applications for the user library.'
     empty_title = 'Your applications, together.'
@@ -50,6 +51,7 @@ class ApplicationsPage(CatalogPage):
             original.icon = updated.icon
             original.arguments = updated.arguments
         self.refresh()
+        self.changed.emit()
 
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
@@ -97,3 +99,4 @@ class ApplicationsPage(CatalogPage):
     def _remove_application(self, application_id):
         self.applications[:] = [entry for entry in self.applications if entry.id != application_id]
         self.refresh()
+        self.changed.emit()

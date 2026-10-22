@@ -52,10 +52,12 @@ class CatalogDelegate(QStyledItemDelegate):
         p.restore()
 
     def sizeHint(self, option, index):
-        return QSize(max(1, self.parent().gridSize().width()), 184)
+        return QSize(max(1, self.parent().gridSize().width()), self.parent().row_height)
 
 
 class CatalogGrid(QListView):
+    row_height = 184
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("libraryGrid")
@@ -84,6 +86,6 @@ class CatalogGrid(QListView):
         gutter = self.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent) + 2
         width = max(1, self.viewport().width() - gutter)
         columns = max(1, width // 275)
-        size = QSize(max(1, width // columns), 184)
+        size = QSize(max(1, width // columns), self.row_height)
         if self.gridSize() != size:
             self.setGridSize(size)

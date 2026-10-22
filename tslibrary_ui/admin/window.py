@@ -19,6 +19,7 @@ from .sidebar import AdminSidebar
 
 class AdminWindow(QWidget):
     back_requested = Signal()
+    catalog_changed = Signal()
     LICENSES_PAGE = "Licenses"
 
     def __init__(self, parent=None, *, session=None):
@@ -34,6 +35,8 @@ class AdminWindow(QWidget):
         self.applications_page = ApplicationsPage(self.session.applications)
         self.phone_apps_page = PhoneAppsPage(self.session.phone_apps)
         self.websites_page = WebsitesPage(self.session.websites)
+        self.applications_page.changed.connect(self.catalog_changed.emit)
+        self.websites_page.changed.connect(self.catalog_changed.emit)
         self.full_library_page = LibraryPage(session=self.session)
         self.pages = {
             "Full library": self.full_library_page,

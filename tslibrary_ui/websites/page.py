@@ -1,6 +1,6 @@
 """Websites tab: row rendering, search, and add/edit/delete behavior."""
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..shared.catalog_page import CatalogPage
@@ -11,6 +11,7 @@ from .dialogs import WebsiteDialog, DeleteWebsiteDialog
 
 
 class WebsitesPage(CatalogPage):
+    changed = Signal()
     title = 'Websites'
     description = 'Website links for the user library.'
     empty_title = 'A home for useful websites.'
@@ -49,6 +50,7 @@ class WebsitesPage(CatalogPage):
             original.url = updated.url
             original.icon = updated.icon
         self.refresh()
+        self.changed.emit()
 
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
@@ -96,3 +98,4 @@ class WebsitesPage(CatalogPage):
     def _remove_website(self, website_id):
         self.websites[:] = [entry for entry in self.websites if entry.id != website_id]
         self.refresh()
+        self.changed.emit()

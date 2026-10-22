@@ -14,7 +14,7 @@ from tslibrary_ui.app import create_app
 from tslibrary_ui import AdminWindow, LibraryWindow, LoginWindow, MainWindow
 from tslibrary_ui.applications.models import Application
 from tslibrary_ui.phone_apps.models import PhoneApp
-from tslibrary_ui.state import LibrarySession
+from tslibrary_ui.state import LibrarySession, WorkplaceConfig
 from tslibrary_ui.websites.models import Website
 from tslibrary_ui.licenses import (
     DeleteItemDialog, DeleteLicenseDialog, LibraryItem, LicenseEntry, LicenseEntryDialog,
@@ -62,6 +62,30 @@ def save_library_previews(app, output):
     admin.close()
 
 
+def save_workplace_previews(app, output):
+    # Sample data is kept in memory, never written to the runnable catalog/config.
+    session = LibrarySession(
+        applications=[Application("Adobe Acrobat", r"C:\Tools\Acrobat.exe"),
+                      Application("Visual Studio Code", r"C:\Tools\Code.exe"),
+                      Application("Figma", r"C:\Tools\Figma.exe")],
+        websites=[Website("Team portal", "https://portal.example.com"),
+                  Website("Knowledge base", "https://docs.example.com"),
+                  Website("Project board", "https://projects.example.com")])
+    config = WorkplaceConfig(application_ids=[session.applications[1].id],
+                             website_ids=[session.websites[0].id, session.websites[1].id],
+                             personal_websites=[Website("My notes", "https://notes.example.com")])
+    window = MainWindow(session=session, config=config)
+    for index, name in [(0, "workplace-websites"), (1, "workplace-applications"),
+                        (2, "workplace-collection")]:
+        window.tabs.setCurrentIndex(index)
+        page = window.tabs.currentWidget()
+        page.grid.setCurrentIndex(page.model.index(0, 0))
+        save_preview(app, window, output / f"{name}.png")
+    window.resize(820, 650)
+    save_preview(app, window, output / "workplace-small.png")
+    window.close()
+
+
 def main():
     app = create_app()
     output = ROOT / "previews"
@@ -69,6 +93,7 @@ def main():
     main_window = MainWindow()
     save_preview(app, main_window, output / "main.png")
     main_window.close()
+    save_workplace_previews(app, output)
     window = LoginWindow(animate=False)
     for name, width, height in [("desktop", 1180, 820), ("compact", 480, 820),
                                 ("wide", 1543, 790), ("tall", 1000, 1100)]:

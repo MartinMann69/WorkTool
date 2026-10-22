@@ -145,7 +145,8 @@ class CatalogPage(QWidget):
         self.count_label = caption("", "adminMuted", wrap=False)
         bottom.addWidget(self.count_label)
         bottom.addStretch()
-        bottom.addWidget(caption("SESSION PREVIEW · NOT SAVED", "adminEyebrow", wrap=False))
+        self.storage_status = caption("SESSION PREVIEW · NOT SAVED", "adminEyebrow", wrap=False)
+        bottom.addWidget(self.storage_status)
         self.content_layout.addLayout(bottom)
 
     def refresh(self, *_):

@@ -11,8 +11,16 @@ tslibrary_ui/
     __init__.py                 Public AdminWindow, LibraryWindow, LoginWindow, MainWindow imports
     app.py                      QApplication, fonts, palette, startup arguments
     navigation.py               Welcome/main/admin/library transitions and shared session
-    main_window.py              Empty main workspace opened by Open TSLibrary
-    state.py                    Session-only lists shared by admin and library
+    main_window.py              User tabs, selection/personal-entry actions, and repository calls
+    state.py                    Catalog session and per-user WorkplaceConfig dataclasses
+    storage.py                  JSON backend and four-method replacement contract for a DB
+    workplace/
+        page.py                 Shared layout for Websites, Applications, and Collection
+        cards.py                Inline workplace Open/Edit controls and mouse/keyboard actions
+        collection.py           Inline card toggle, check-state model, and mouse/keyboard input
+        selection.py            Live sidebar of selected Collection entries
+        models.py               User selections and personal/catalog projections
+        launching.py            Explicit browser and Windows executable/shortcut launching
     library/
         window.py               Standalone library window
         page.py                 Shared admin/public overview, totals, search and sorting
@@ -63,7 +71,7 @@ tslibrary_ui/
         base.qss                Welcome and common theme rules
         admin.qss               Admin pages, tables, and dialogs
         library.qss             Read-only library, summary tiles, and filters
-        main.qss                Empty main workspace background
+        main.qss                Workplace tabs, cards, search, and action styling
 tests/                          Feature-based automated checks
 scripts/preview.py              Screenshots with sample data
 previews/                       Generated screenshots, not application source
@@ -79,7 +87,8 @@ docs/FEATURES.md                Detailed behavior and preview limitations
 | If you want to… | Edit |
 | --- | --- |
 | Change welcome copy or rearrange its fields | `welcome/window.py` |
-| Add content to the empty main workspace | `main_window.py` |
+| Change user workplace tabs or actions | `main_window.py`, `workplace/page.py` |
+| Change JSON persistence or move to a DB | `storage.py`; see `docs/STORAGE.md` |
 | Change password visibility or field focus behavior | `welcome/widgets.py` |
 | Change what happens between welcome and admin | `navigation.py` |
 | Change startup, fonts, or the application palette | `app.py` |
@@ -105,7 +114,7 @@ docs/FEATURES.md                Detailed behavior and preview limitations
 
 ## Responsibilities and data flow
 
-`main.py` starts `app.py`, which creates Qt and the `PreviewController` in `navigation.py`. That controller owns the welcome, empty main workspace, admin, and library windows and supplies a single shared `LibrarySession` to admin and library. **Open TSLibrary** opens only the empty main workspace. The collection can be opened separately with `--library`. The admin preview opens without checking credentials; normal access requires no sign-in.
+`main.py` starts `app.py`, which creates Qt, the repository, and the `PreviewController` in `navigation.py`. That controller owns the welcome, user workplace, admin, and library windows, and supplies a single shared `LibrarySession`. **Open TSLibrary** opens Websites/Applications/Collection. Admin app/website changes signal the controller to save the catalog; workplace changes save through the same repository to the user's separate config. The admin preview opens without checking credentials; normal access requires no sign-in.
 
 `AdminWindow` composes a sidebar, a read-only Full library overview, and four feature pages. Each inventory page owns its dialogs, rows, filtering, and refresh behavior. `CatalogPage` supplies their shared editing layout; changing one feature's behavior belongs in its own `page.py`. The Full library tab embeds `LibraryPage`, shared with the standalone `LibraryWindow`.
 
@@ -113,7 +122,7 @@ docs/FEATURES.md                Detailed behavior and preview limitations
 
 `LibraryWindow` builds read-only display entries from all four lists whenever shown or refreshed. These projections include names, types, public details, and icons; license keys are excluded. Sorting and filtering affect only the display model and never reorder or edit session data. The Qt item view draws responsive cards without creating a widget for each entry.
 
-There is no persistence layer or authentication service yet. When adding these, give storage and authentication their own modules and connect them through navigation/pages. Keep file/network operations out of painting and layout construction.
+`storage.py` implements the JSON persistence boundary and a factory that can return a database-backed repository later. All file paths, JSON serialization, atomic writes, and reconstruction of persisted records stay there. There is no authentication service yet. Keep future storage/authentication operations out of painting and layout construction. See [STORAGE.md](STORAGE.md).
 
 ## Access a feature from code
 
