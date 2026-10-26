@@ -15,7 +15,10 @@ tslibrary_ui/
     main_window.py              User tabs, selection/personal-entry actions, and repository calls
     transfers.py                Validated catalog/workplace backups and CSV exports
     state.py                    Catalog session and per-user WorkplaceConfig dataclasses
-    storage.py                  JSON backend and four-method replacement contract for a DB
+    relationships.py            Typed, bidirectional catalog links and JSON validation
+    storage.py                  Separate catalog/local workplace adapters and JSON codecs
+    migrations.py               Saved-data versions and sequential format conversions
+    version.py                  App release version used by Qt and the Windows build
     workplace/
         page.py                 Shared layout for Websites, Applications, and Collection
         cards.py                Inline workplace Open/Edit controls and mouse/keyboard actions
@@ -32,6 +35,7 @@ tslibrary_ui/
         cards.py                Responsive Qt item-view cards
     admin/
         window.py               Admin shell: creates pages and switches tabs
+        relationships.py        Draft links in item editors, picker, and row navigation buttons
         sidebar.py              Navigation, branding, and back button
     welcome/
         window.py               Welcome layout, copy, signals, and animation
@@ -52,6 +56,11 @@ tslibrary_ui/
         models.py               Name-only phone app inventory entries
         page.py                 Table, search, add/edit/remove actions
         dialogs.py              Name editor and removal confirmation
+    documentation/
+        models.py               Shared root settings, named items, and path validation
+        files.py                Folder creation/rename, exclusive file copies, and browsing
+        page.py                 Admin documentation storage controls and file browsing
+        dialogs.py              Item names, file listing, and background file import
     websites/
         models.py               Website data
         page.py                 Table, search, add/edit/remove actions
@@ -92,7 +101,7 @@ docs/FEATURES.md                Detailed behavior and preview limitations
 | --- | --- |
 | Change welcome copy or rearrange its fields | `welcome/window.py` |
 | Change user workplace tabs or actions | `main_window.py`, `workplace/page.py` |
-| Change JSON persistence or move to a DB | `storage.py`; see `docs/STORAGE.md` |
+| Change local persistence or connect a catalog server | `storage.py` adapters and `create_catalog_store()`; see `docs/STORAGE.md` |
 | Change password visibility or field focus behavior | `welcome/widgets.py` |
 | Change what happens between welcome and admin | `navigation.py` |
 | Change startup, fonts, or the application palette | `app.py` |
@@ -126,7 +135,7 @@ docs/FEATURES.md                Detailed behavior and preview limitations
 
 `LibraryWindow` builds read-only display entries from all four lists whenever shown or refreshed. These projections include names, types, public details, and icons; license keys are excluded. Sorting and filtering affect only the display model and never reorder or edit session data. The Qt item view draws responsive cards without creating a widget for each entry.
 
-`storage.py` implements the JSON persistence boundary and a factory that can return a database-backed repository later. All file paths, JSON serialization, atomic writes, and reconstruction of persisted records stay there. There is no authentication service yet. Keep future storage/authentication operations out of painting and layout construction. See [STORAGE.md](STORAGE.md).
+`storage.py` composes `ApplicationRepository` from a catalog adapter and a local workplace adapter. `JsonCatalogStore` is a placeholder for a future server; replace `create_catalog_store()` without changing `LocalWorkplaceStore` or user data. All file paths, JSON serialization, atomic writes, and reconstruction of persisted records stay there. There is no authentication service yet. Keep future storage/authentication operations out of painting and layout construction. See [STORAGE.md](STORAGE.md).
 
 ## Access a feature from code
 

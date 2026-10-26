@@ -1,7 +1,7 @@
-"""Storage boundary: replace this file to use a DB instead of JSON.
+"""Separate shared catalog access from local, per-user workplace persistence.
 
-The rest of the application uses only Repository's four methods and the
-LibrarySession / WorkplaceConfig dataclasses, never JSON or filesystem paths.
+Replace CatalogStore (via create_catalog_store) to use a server. The UI keeps
+using Repository's four methods; personal data never passes to CatalogStore.
 Icons are reconstructed locally and are not persisted. License counts, owners,
 renewal dates, and tracking modes are saved, but license key values never are.
 """
@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 import tempfile
 from typing import Protocol
-from datetime import date
+from datetime import date, datetime
+from uuid import uuid4
 
 from .applications.icons import executable_icon
 from .applications.models import Application
@@ -21,6 +22,9 @@ from .websites.models import Website
 from .websites.urls import normalize_website_url
 from .licenses.models import LibraryItem, LicenseEntry, MAX_LICENSE_COUNT
 from .phone_apps.models import PhoneApp
+from .documentation.models import documentation_data, decode_documentation
+from .relationships import links_data, decode_links
+from .migrations import CATALOG_SCHEMA, WORKPLACE_SCHEMA
 
 
 class StorageError(Exception):
@@ -30,6 +34,25 @@ class StorageError(Exception):
 class Repository(Protocol):
     def load_catalog(self) -> LibrarySession: ...
     def save_catalog(self, session: LibrarySession) -> None: ...
+    def load_workplace(self) -> WorkplaceConfig: ...
+    def save_workplace(self, config: WorkplaceConfig) -> None: ...
+
+
+class CatalogStore(Protocol):
+    """Shared inventory only. A future server adapter authenticates admin writes.
+
+    Preserve record IDs and raise StorageError on failed reads/writes. Network
+    implementations must use catalog_data/decode_catalog for the wire payload,
+    never serialize a whole UI session (which can contain session-only keys).
+    """
+
+    def load_catalog(self) -> LibrarySession: ...
+    def save_catalog(self, session: LibrarySession) -> None: ...
+
+
+class WorkplaceStore(Protocol):
+    """Personal entries, selections, and preferences; always a local store."""
+
     def load_workplace(self) -> WorkplaceConfig: ...
     def save_workplace(self, config: WorkplaceConfig) -> None: ...
 
@@ -100,7 +123,9 @@ def _mapping(data, field, *, lists=False):
 
 def catalog_data(session):
     """Serializable inventory and renewal metadata; never serialize key values."""
-    return dict(version=1, applications=_app_records(session.applications),
+    return dict(version=CATALOG_SCHEMA.current_version, applications=_app_records(session.applications),
+                links=links_data(session),
+                documentation=documentation_data(session.documentation),
                 websites=_site_records(session.websites),
                 phone_apps=[dict(id=app.id, name=app.name) for app in session.phone_apps],
                 items=[dict(id=item.id, name=item.name, category=item.category, owner=item.owner,
@@ -111,7 +136,9 @@ def catalog_data(session):
 
 
 def decode_catalog(data):
+    data = CATALOG_SCHEMA.upgrade(data)
     session = LibrarySession(applications=_apps(data, "applications"), websites=_sites(data, "websites"),
+                             documentation=decode_documentation(data.get("documentation", {})),
                              phone_apps=[PhoneApp(_text(app, "name"), _text(app, "id"))
                                          for app in _records(data, "phone_apps")])
     for item in _records(data, "items"):
@@ -134,11 +161,12 @@ def decode_catalog(data):
                                          unlimited=unlimited, keyed=keyed))
         session.items.append(LibraryItem(_text(item, "name"), _text(item, "category"), licenses,
                                          _text(item, "id"), _text(item, "owner", allow_empty=True), renewal))
+    session.links = decode_links(data.get("links", []), session)
     return session
 
 
 def workplace_data(config):
-    return dict(version=1, application_ids=list(dict.fromkeys(config.application_ids)),
+    return dict(version=WORKPLACE_SCHEMA.current_version, application_ids=list(dict.fromkeys(config.application_ids)),
                 website_ids=list(dict.fromkeys(config.website_ids)),
                 personal_applications=_app_records(config.personal_applications),
                 personal_websites=_site_records(config.personal_websites),
@@ -148,6 +176,7 @@ def workplace_data(config):
 
 
 def decode_workplace(data):
+    data = WORKPLACE_SCHEMA.upgrade(data)
     mode = data.get("view_mode", "cards")
     if mode not in ("cards", "list"):
         raise ValueError("'view_mode' must be cards or list.")
@@ -160,27 +189,70 @@ def decode_workplace(data):
         start_in_workplace=_bool(data, "start_in_workplace"), view_mode=mode)
 
 
-class JsonRepository:
-    def __init__(self, catalog_path: Path, config_path: Path):
-        self.catalog_path = Path(catalog_path)
-        self.config_path = Path(config_path)
-        if self.catalog_path.resolve() == self.config_path.resolve():
-            raise StorageError("Catalog and personal config must use different files.")
-
+class JsonFile:
+    """Versioned JSON validation and atomic writes, also used by backups."""
     @staticmethod
-    def _read(path, decode):
+    def _read(path, decode, *, schema=None):
+        original = None
         try:
-            data = json.loads(path.read_text(encoding="utf-8-sig"))
+            original = path.read_bytes()
+            data = json.loads(original.decode("utf-8-sig"))
         except FileNotFoundError:
-            data = {"version": 1}
+            data = {"version": schema.current_version if schema is not None else 1}
         except (OSError, UnicodeError, ValueError) as error:
             raise StorageError(f"Could not read {path}: {error}") from error
         try:
-            if not isinstance(data, dict) or data.get("version") != 1:
+            if schema is not None:
+                upgraded = schema.upgrade(data)
+            elif not isinstance(data, dict) or type(data.get("version")) is not int or data["version"] != 1:
                 raise ValueError("Expected a version 1 JSON object.")
-            return decode(data)
+            else:
+                upgraded = data
+            decoded = decode(upgraded)
         except (ValueError, TypeError, KeyError) as error:
             raise StorageError(f"Invalid data in {path}: {error}") from error
+        if schema is not None and original is not None and data["version"] != upgraded["version"]:
+            # Validate the entire converted document before touching the source.
+            # The backup contains the exact original bytes, including its BOM.
+            try:
+                if path.read_bytes() != original:
+                    raise StorageError(f"{path} changed during migration. Retry after closing other editors.")
+                backup = path.with_name(
+                    f"{path.name}.before-migration-v{data['version']}-to-v{upgraded['version']}-"
+                    f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}.bak")
+                backup_created = False
+                try:
+                    with backup.open("xb") as stream:
+                        backup_created = True
+                        stream.write(original)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                except OSError:
+                    # A partial backup must never look like a recovery copy.
+                    if backup_created:
+                        try:
+                            backup.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                    raise
+                if path.read_bytes() != original:
+                    raise StorageError(f"{path} changed during migration. Retry after closing other editors.")
+                JsonFile._write(path, upgraded)
+            except OSError as error:
+                raise StorageError(f"Could not back up or migrate {path}: {error}") from error
+        return decoded
+
+    @staticmethod
+    def _save_document(path, data, decode, *, schema):
+        # Also guard direct saves: an older app must not overwrite a newer file
+        # even if another process replaced it since this app loaded its session.
+        try:
+            current = schema.upgrade(data)
+            decode(current)
+        except (ValueError, TypeError, KeyError) as error:
+            raise StorageError(f"Could not validate data for {path}: {error}") from error
+        JsonFile._read(path, decode, schema=schema)
+        JsonFile._write(path, current)
 
     @staticmethod
     def _write(path, data):
@@ -205,25 +277,85 @@ class JsonRepository:
                 except OSError:
                     pass
 
-    def load_catalog(self):
-        return self._read(self.catalog_path, decode_catalog)
 
-    def save_catalog(self, session):
-        self._write(self.catalog_path, catalog_data(session))
+class JsonCatalogStore:
+    """Local JSON stand-in for the future shared catalog service."""
 
-    def load_workplace(self):
-        return self._read(self.config_path, decode_workplace)
+    def __init__(self, path: Path):
+        self.path = Path(path)
 
-    def save_workplace(self, config):
-        self._write(self.config_path, workplace_data(config))
+    def load_catalog(self) -> LibrarySession:
+        return JsonFile._read(self.path, decode_catalog, schema=CATALOG_SCHEMA)
+
+    def save_catalog(self, session: LibrarySession) -> None:
+        JsonFile._save_document(self.path, catalog_data(session), decode_catalog, schema=CATALOG_SCHEMA)
 
 
-def create_repository() -> Repository:
-    """The single backend switch; environment paths also support testing/deployment."""
+class LocalWorkplaceStore:
+    """User-owned JSON; independent of catalog availability or implementation."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+
+    def load_workplace(self) -> WorkplaceConfig:
+        return JsonFile._read(self.path, decode_workplace, schema=WORKPLACE_SCHEMA)
+
+    def save_workplace(self, config: WorkplaceConfig) -> None:
+        JsonFile._save_document(self.path, workplace_data(config), decode_workplace, schema=WORKPLACE_SCHEMA)
+
+
+class ApplicationRepository:
+    """Route existing UI calls to two independent storage adapters."""
+
+    def __init__(self, catalog_store: CatalogStore, workplace_store: WorkplaceStore):
+        if isinstance(catalog_store, JsonCatalogStore) and isinstance(workplace_store, LocalWorkplaceStore):
+            if catalog_store.path.resolve() == workplace_store.path.resolve():
+                raise StorageError("Catalog and personal config must use different files.")
+        self.catalog_store = catalog_store
+        self.workplace_store = workplace_store
+
+    def load_catalog(self) -> LibrarySession:
+        return self.catalog_store.load_catalog()
+
+    def save_catalog(self, session: LibrarySession) -> None:
+        self.catalog_store.save_catalog(session)
+
+    def load_workplace(self) -> WorkplaceConfig:
+        return self.workplace_store.load_workplace()
+
+    def save_workplace(self, config: WorkplaceConfig) -> None:
+        self.workplace_store.save_workplace(config)
+
+
+class JsonRepository(ApplicationRepository):
+    """Compatibility constructor for callers supplying two explicit JSON paths."""
+
+    _read = staticmethod(JsonFile._read)
+    _write = staticmethod(JsonFile._write)
+
+    def __init__(self, catalog_path: Path, config_path: Path):
+        self.catalog_path = Path(catalog_path)
+        self.config_path = Path(config_path)
+        super().__init__(JsonCatalogStore(self.catalog_path), LocalWorkplaceStore(self.config_path))
+
+
+def create_catalog_store(path: Path) -> CatalogStore:
+    """Catalog-only backend switch: replace this adapter when a server is ready."""
+    return JsonCatalogStore(path)
+
+
+def create_repository(*, catalog_store: CatalogStore | None = None) -> Repository:
+    """Keep personal data local even when injecting a different catalog backend.
+
+    Existing default paths and version-1 JSON files are deliberately unchanged.
+    The catalog adapter is injectable for serverless integration tests.
+    """
     catalog = Path(os.environ.get("TSLIBRARY_CATALOG_PATH", str(
         (Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "TSLibrary" / "catalog.json")
         if getattr(sys, "frozen", False)
         else Path(__file__).resolve().parent.parent / "data" / "catalog.json")))
     user_root = Path(os.environ.get("APPDATA") or str(Path.home() / ".config"))
     config = Path(os.environ.get("TSLIBRARY_CONFIG_PATH", str(user_root / "TSLibrary" / "workplace.json")))
-    return JsonRepository(catalog, config)
+    return ApplicationRepository(
+        catalog_store if catalog_store is not None else create_catalog_store(catalog),
+        LocalWorkplaceStore(config))

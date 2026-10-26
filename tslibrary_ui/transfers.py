@@ -4,14 +4,14 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
-from .storage import (JsonRepository, StorageError, catalog_data, decode_catalog,
+from .storage import (JsonFile, StorageError, catalog_data, decode_catalog,
                       decode_workplace, workplace_data)
 
 
 def export_backup(path, value, *, catalog=False):
     kind = "catalog" if catalog else "workplace"
     data = catalog_data(value) if catalog else workplace_data(value)
-    JsonRepository._write(Path(path), dict(version=1, format=f"tslibrary.{kind}", **{kind: data}))
+    JsonFile._write(Path(path), dict(version=1, format=f"tslibrary.{kind}", **{kind: data}))
 
 
 def import_backup(path, *, catalog=False):
@@ -21,8 +21,8 @@ def import_backup(path, *, catalog=False):
         if data.get("format") != f"tslibrary.{kind}" or not isinstance(data.get(kind), dict):
             raise ValueError(f"Choose a TSLibrary {kind} backup.")
         nested = data[kind]
-        if nested.get("version") != 1:
-            raise ValueError("Unsupported backup version.")
+        # Payload codecs apply their schema migrations in memory. Import must
+        # never rewrite the chosen backup file (the envelope stays version 1).
         return decode_catalog(nested) if catalog else decode_workplace(nested)
 
     try:
@@ -30,7 +30,7 @@ def import_backup(path, *, catalog=False):
             raise StorageError("That backup is too large (maximum 20 MB).")
     except OSError as error:
         raise StorageError(str(error)) from error
-    return JsonRepository._read(Path(path), decode)
+    return JsonFile._read(Path(path), decode)
 
 
 def recovery_path(path):
@@ -44,6 +44,8 @@ def export_catalog_csv(path, session):
         rows.append(("Application", app.name, app.launch_target, "", "", "", ""))
     rows += [("Website", site.name, site.url, "", "", "", "") for site in session.websites]
     rows += [("Phone app", app.name, "", "", "", "", "") for app in session.phone_apps]
+    rows += [("Documentation", item.name, f"{session.documentation.root_name}/{item.name}", "", "", "", "")
+             for item in session.documentation.items]
     rows += [("Licensed item", item.name, item.category, item.owner, item.renewal_date,
               item.available_text, item.used_text) for item in session.items]
     try:

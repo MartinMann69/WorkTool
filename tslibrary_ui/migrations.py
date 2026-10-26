@@ -1,0 +1,49 @@
+"""Pure, sequential saved-data migrations, independent of the application version.
+
+For a structural change, add a function under the OLD version number and raise
+the schema's current_version. Each function returns the next version's object.
+Never regenerate record IDs. Keep old steps so installations can skip releases.
+File backups and atomic replacement are handled by storage.JsonFile.
+"""
+
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Callable, Mapping
+
+
+@dataclass(frozen=True)
+class DataSchema:
+    name: str
+    current_version: int
+    migrations: Mapping[int, Callable[[dict], dict]]
+
+    def upgrade(self, data: dict) -> dict:
+        if not isinstance(data, dict):
+            raise ValueError(f"Expected a {self.name} JSON object.")
+        version = data.get("version")
+        if type(version) is not int or version < 1:
+            raise ValueError(f"The {self.name} needs a positive integer data version.")
+        if version > self.current_version:
+            raise ValueError(
+                f"This {self.name} uses newer data version {version}; this app supports "
+                f"up to {self.current_version}. Install a newer app to open it.")
+        result = deepcopy(data)
+        while version < self.current_version:
+            step = self.migrations.get(version)
+            if step is None:
+                raise ValueError(f"No {self.name} migration from data version {version}.")
+            try:
+                result = step(result)
+            except Exception as error:
+                raise ValueError(f"Could not migrate {self.name} from data version {version}: {error}") from error
+            if (not isinstance(result, dict) or type(result.get("version")) is not int
+                    or result["version"] != version + 1):
+                raise ValueError(f"The {self.name} migration must advance exactly one version.")
+            version += 1
+        return result
+
+
+# No format conversion is needed for this release. Add real steps here when a
+# future release changes a schema; app version bumps alone need no migration.
+CATALOG_SCHEMA = DataSchema("catalog", current_version=1, migrations={})
+WORKPLACE_SCHEMA = DataSchema("workplace", current_version=1, migrations={})

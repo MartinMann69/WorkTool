@@ -46,11 +46,13 @@ The library combines all four admin inventories. Search names and details, filte
 
 Administration also includes a **Full library** sidebar tab with the same combined overview. Items added, renamed, or removed in the individual tabs appear when you return to it. Its sort choice is independent of the inventory tabs.
 
+In an admin entry's add/edit form, use **Related entries → Choose entries…** to select existing applications, phone apps, websites, licensed items, or documentation folders. Connected entries form a group: each member can reach every other member. Selecting an entry from another group also checks its existing members; uncheck any entries you want to separate before saving. Choose **Use selection**, then save the item to apply both its fields and its group; cancelling discards the draft changes. Any combination is optional. Linked rows show a **chain icon and count** in the **Links** column. Click to open a single connection directly, or choose from a menu when there are several. Licenses open their manager and documentation opens its files. Existing links automatically gain this group behavior on load. Renames preserve groups, and deleting a member keeps the remaining members connected. These controls are available only in Administration.
+
 On macOS/Linux, use `.venv/bin/python` instead. Georgia, Segoe UI, and Yu Mincho are used when installed, with Qt font fallback.
 
 Admin credentials are still not checked. App/website edits save automatically to the shared `data/catalog.json`. Each user's selections and personal entries save to `%APPDATA%\TSLibrary\workplace.json`. Files are created on the first change. Launching happens only through an explicit workplace Open action or double-click; adding/editing entries does not open them. Phone apps, license counts, owners, and renewal dates also save automatically. License key values stay in memory only and are excluded from JSON files and backups; after restarting, keyed entries show that the key needs to be re-entered. Sample entries are used only in screenshots.
 
-The storage boundary is [storage.py](tslibrary_ui/storage.py). Replace its implementation and factory to use a database; windows and feature pages do not read or write JSON themselves. See [storage and config](docs/STORAGE.md) for the four-method contract, schemas, and deployment paths.
+The storage boundary is [storage.py](tslibrary_ui/storage.py). `ApplicationRepository` keeps two adapters separate: `LocalWorkplaceStore` for personal data and `CatalogStore` for admin-managed inventory. The current `JsonCatalogStore` is a server placeholder; replace only `create_catalog_store()` with a server adapter later. Admin edits already save through this boundary, and workplace entry / **Refresh collection** reloads it. New catalog entries are available in Collection for users to select; they do not automatically enter personal workplaces. Existing paths, record IDs, and version-1 JSON files remain compatible. See [storage and config](docs/STORAGE.md) for the contracts and the remaining network deployment work (authentication, asynchronous sync, offline cache, and conflict handling).
 
 ## Everyday workplace tools
 
@@ -63,6 +65,18 @@ The storage boundary is [storage.py](tslibrary_ui/storage.py). Replace its imple
 - Admin tabs keep their individual search terms when switching pages. Search, filters, cards, and secondary labels use larger text.
 - Licensed items now have an optional **owner / responsible team** and an optional **renewal date**. The license page highlights renewals due within 30 days or overdue; details and the full-library search include this metadata. These are in-app reminders, not background notifications.
 
+## Shared documentation
+
+In **Administration → Documentation**, choose an existing shared drive or cloud-synced **Shared location**, enter a **Root folder name**, and click **Save location**. The root defaults to `TSLibrary Documentation`.
+
+Use **Add item** to name a folder and then **Add files…** to copy documents into it. A name such as `IT/Setup` creates `<shared location>/<root folder>/IT/Setup/`. Files retain their names; original source files are kept. Duplicate filenames are rejected instead of overwritten. File copies run in the background.
+
+Documentation is available in Administration. The user window contains **Websites**, **Applications**, and **Collection**. Removing a documentation item in Administration removes its listing only; its folder and files are kept. Renaming an item also renames its folder (and the paths of any child items). Changing the root name moves the existing root folder; existing destination folders are never merged. A move between drives may need to be done manually before changing deployment settings.
+
+Use your cloud service or network share to grant the team access and sync the files. TSLibrary does not upload to a cloud API or change sharing permissions. Every PC needs access to the same catalog (`TSLIBRARY_CATALOG_PATH`) and documentation folder. If PCs mount the shared parent at different paths, set `TSLIBRARY_DOCUMENTS_PATH` on each PC to its local shared-parent path; the configured root name is appended to it. On the administrator PC, unset this override before changing storage settings.
+
+Catalog backups include documentation names and location settings, **not the attached files**. Back up the shared folder separately.
+
 ## Backup, restore, and export
 
 **Tools** exports/restores the current user's workplace preferences and personal entries. Administration's **Data tools** exports/restores the shared catalog and exports a CSV inventory. Restore validates the whole backup before applying it, asks for confirmation, and writes a timestamped recovery backup beside the chosen file first. Backups preserve record IDs, favorites, groups, workspace sets, local paths, and preferences. Local paths may need repairing on a different PC.
@@ -74,7 +88,7 @@ Catalog backups and CSV exports include phone apps and license metadata/counts, 
 The packaged build needs no Python installation:
 
 - `dist/TSLibrary/TSLibrary.exe` runs the standalone app. Keep its `_internal` folder beside it.
-- `dist/TSLibrary-Setup-0.2.0.exe` installs it for the current Windows user, adds a Start menu shortcut, optionally adds a desktop shortcut, and provides an uninstaller. Updating/uninstalling the program keeps catalog and workplace data outside the installation folder.
+- `dist/TSLibrary-Setup-0.3.0.exe` installs it for the current Windows user, adds a Start menu shortcut, optionally adds a desktop shortcut, and provides an uninstaller. Updating/uninstalling the program keeps catalog and workplace data outside the installation folder.
 - Packaged catalog data defaults to `%LOCALAPPDATA%\TSLibrary\catalog.json`. `TSLIBRARY_CATALOG_PATH` still selects an explicit shared catalog; user preferences stay in `%APPDATA%\TSLibrary\workplace.json`. To move development data into an installed copy, export and restore a catalog backup.
 
 Rebuild with Python dependencies from `requirements.txt` and `requirements-build.txt`, plus [Inno Setup 6](https://jrsoftware.org/isinfo.php):
@@ -84,6 +98,8 @@ Rebuild with Python dependencies from `requirements.txt` and `requirements-build
 ```
 
 The build scripts create the icon from the project's own mark and bundle styles and installed dependency license files. `TSLibrary.exe --self-test` renders its windows with in-memory data without opening the real catalog or reserving the normal app instance. Set `QT_QPA_PLATFORM=offscreen` for an unattended check. The development installer is unsigned; production signing is a separate release step.
+
+Release versions come from `tslibrary_ui/version.py`; the build passes that version to Inno Setup and creates a matching SHA-256 checksum. Install a newer setup over the existing installation under the same Windows user. Keep the installer `AppId` unchanged. App versions and saved-data versions are independent: this release still reads/writes data format 1. A migration framework now validates conversions, creates an exact recovery backup before changing a saved-data format, and rejects newer unsupported files on both load and save. Future structural changes still require explicit migration functions and tests. See the [release and upgrade guide](docs/RELEASING.md).
 
 ## Find the right file
 

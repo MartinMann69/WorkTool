@@ -10,13 +10,14 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from .navigation import PreviewController
 from .single_instance import InstanceError, SingleInstance
 from .storage import StorageError, create_repository
+from .version import __version__
 
 
 def create_app() -> QApplication:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("TSLibrary")
     app.setOrganizationName("TSLibrary")
-    app.setApplicationVersion("0.2.0")
+    app.setApplicationVersion(__version__)
     app.setStyle("Fusion")
     # Qt's offscreen Windows plugin does not enumerate installed fonts.
     # Load the same system fonts explicitly when rendering headless previews.

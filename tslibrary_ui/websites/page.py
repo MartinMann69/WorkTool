@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..shared.catalog_page import CatalogPage
 from ..shared.controls import TrashButton
-from ..shared.tables import button_cell, cell
+from ..shared.tables import button_cell, cell, preserve_selection
 from .models import Website
 from .dialogs import WebsiteDialog, DeleteWebsiteDialog
 
@@ -37,6 +37,7 @@ class WebsitesPage(CatalogPage):
     def add_website(self, website=None):
         dialog = WebsiteDialog(self, website=website)
         self.website_dialog = dialog
+        self.editing.emit(dialog, website)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.accepted.connect(lambda: self._save_website(dialog, website))
         dialog.open()
@@ -49,9 +50,11 @@ class WebsitesPage(CatalogPage):
             original.name = updated.name
             original.url = updated.url
             original.icon = updated.icon
+        self.entry_saved.emit(dialog, original if original is not None else updated)
         self.refresh()
         self.changed.emit()
 
+    @preserve_selection
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
         visible = [entry for entry in self.websites

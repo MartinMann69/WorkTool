@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..shared.catalog_page import CatalogPage
 from ..shared.controls import TrashButton
-from ..shared.tables import button_cell, cell
+from ..shared.tables import button_cell, cell, preserve_selection
 from .models import LibraryItem, count_text
 from .item_dialog import ItemDialog, DeleteItemDialog
 from .window import LicenseWindow
@@ -37,6 +37,7 @@ class LicensesPage(CatalogPage):
     def add_item(self):
         dialog = ItemDialog(self)
         self.item_dialog = dialog
+        self.editing.emit(dialog, None)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.accepted.connect(lambda: self._save_item(dialog))
         dialog.open()
@@ -44,6 +45,7 @@ class LicensesPage(CatalogPage):
     def _save_item(self, dialog):
         item = dialog.item()
         self.items.append(item)
+        self.entry_saved.emit(dialog, item)
         self.changed.emit()
         self.refresh_categories()
         self.refresh()
@@ -59,6 +61,7 @@ class LicensesPage(CatalogPage):
         self.category_filter.setCurrentIndex(max(0, index))
         self.category_filter.blockSignals(False)
 
+    @preserve_selection
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
         category = self.category_filter.currentText()
@@ -112,6 +115,8 @@ class LicensesPage(CatalogPage):
     def open_licenses(self, item):
         dialog = LicenseWindow(item, self)
         self.license_window = dialog
+        dialog.editing.connect(self.editing.emit)
+        dialog.entry_saved.connect(self.entry_saved.emit)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.details_changed.connect(self.refresh_categories)
         dialog.changed.connect(self.refresh)

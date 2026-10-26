@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QPushButton, QHeaderView
 
 from ..shared.catalog_page import CatalogPage
 from ..shared.controls import TrashButton
-from ..shared.tables import button_cell, cell
+from ..shared.tables import button_cell, cell, preserve_selection
 from .models import Application
 from .dialogs import ApplicationDialog, DeleteApplicationDialog
 
@@ -37,6 +37,7 @@ class ApplicationsPage(CatalogPage):
     def add_application(self, application=None):
         dialog = ApplicationDialog(self, application=application)
         self.application_dialog = dialog
+        self.editing.emit(dialog, application)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.accepted.connect(lambda: self._save_application(dialog, application))
         dialog.open()
@@ -50,9 +51,11 @@ class ApplicationsPage(CatalogPage):
             original.executable = updated.executable
             original.icon = updated.icon
             original.arguments = updated.arguments
+        self.entry_saved.emit(dialog, original if original is not None else updated)
         self.refresh()
         self.changed.emit()
 
+    @preserve_selection
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
         visible = [entry for entry in self.applications

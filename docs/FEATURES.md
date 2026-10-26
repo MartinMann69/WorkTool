@@ -1,5 +1,7 @@
 # Current features
 
+- **Admin related entries:** add/edit forms in Applications, Phone apps, Websites, Licenses, and Documentation include **Related entries → Choose entries…**. Connected entries form a group and every member lists all the others, including groups built from older direct links. A searchable picker supports type filtering. Selecting a member of another group also checks its connected members, including hidden results; unchecking entries separates them from the edited group, while those left behind stay connected to one another. **Use selection** stages the choices; saving the item applies them and cancelling discards them. For licensed items, use **Manage licenses → Edit item**. Linked rows show a chain icon and count in the **Links** column; unlinked rows have no button. One connection opens directly and multiple connections offer a destination menu. Navigation reveals the exact admin record, clearing filters only if needed. Licensed items open their license manager; documentation items open their file browser. Renames preserve groups, deleting a member leaves the others connected, and catalog saves/backups retain group membership. Regular user windows have no related-entry controls.
+
 - Original architectural artwork inspired by dark timber, shoji screens, and warm lantern light.
 - Scalable bookshelf mark, artwork, and icons drawn with QPainter; no external images.
 - Focus and hover states, password visibility toggle, and keyboard navigation.

@@ -1,11 +1,44 @@
 """Shared table setup and cells; feature pages own row content."""
 
-from PySide6.QtCore import Qt
+from functools import wraps
+
+from PySide6.QtCore import Qt, QSignalBlocker
 from PySide6.QtWidgets import (
     QAbstractItemView, QHeaderView, QTableWidgetItem, QHBoxLayout, QWidget,
 )
 
 from .controls import TrashButton
+
+
+def preserve_selection(refresh):
+    """Keep selection attached to a record ID through sorting and rebuilding."""
+    @wraps(refresh)
+    def wrapped(page, *args, **kwargs):
+        table = getattr(page, "table", None)
+        if table is None:
+            return refresh(page, *args, **kwargs)
+        item = table.item(table.currentRow(), 0)
+        selected_id = item.data(Qt.ItemDataRole.UserRole) if item and table.selectedItems() else None
+        with QSignalBlocker(table):
+            # Qt deletes replaced cell widgets later. Hide them before rebuilding
+            # so repeated refreshes cannot paint old actions over the new rows.
+            for row in range(table.rowCount()):
+                for column in range(table.columnCount()):
+                    widget = table.cellWidget(row, column)
+                    if widget is not None:
+                        widget.hide()
+            result = refresh(page, *args, **kwargs)
+            table.clearSelection()
+            table.setCurrentCell(-1, -1)
+            if selected_id is not None:
+                for row in range(table.rowCount()):
+                    item = table.item(row, 0)
+                    if item and item.data(Qt.ItemDataRole.UserRole) == selected_id:
+                        table.setCurrentCell(row, 0)
+                        break
+        page.refreshed.emit()
+        return result
+    return wrapped
 
 
 def setup_table(table, headers):

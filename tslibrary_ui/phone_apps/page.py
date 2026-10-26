@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QPushButton, QHeaderView
 from ..graphics.icons import admin_icon
 from ..shared.catalog_page import CatalogPage
 from ..shared.controls import TrashButton
-from ..shared.tables import button_cell, cell
+from ..shared.tables import button_cell, cell, preserve_selection
 from .dialogs import PhoneAppDialog, DeletePhoneAppDialog
 from .models import PhoneApp
 
@@ -35,6 +35,7 @@ class PhoneAppsPage(CatalogPage):
     def add_phone_app(self, phone_app=None):
         dialog = PhoneAppDialog(self, phone_app=phone_app)
         self.phone_app_dialog = dialog
+        self.editing.emit(dialog, phone_app)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.accepted.connect(lambda: self._save_phone_app(dialog, phone_app))
         dialog.open()
@@ -45,9 +46,11 @@ class PhoneAppsPage(CatalogPage):
             self.phone_apps.append(updated)
         else:
             original.name = updated.name
+        self.entry_saved.emit(dialog, original if original is not None else updated)
         self.refresh()
         self.changed.emit()
 
+    @preserve_selection
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
         visible = [entry for entry in self.phone_apps if query in entry.name.casefold()]

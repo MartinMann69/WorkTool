@@ -99,7 +99,7 @@ class StorageChecks(unittest.TestCase):
         with patch.dict(os.environ, {"TSLIBRARY_CATALOG_PATH": str(self.repo.catalog_path),
                                      "TSLIBRARY_CONFIG_PATH": str(self.repo.config_path)}):
             repo = create_repository()
-        self.assertEqual(repo.catalog_path, self.repo.catalog_path)
-        self.assertEqual(repo.config_path, self.repo.config_path)
+        self.assertEqual(repo.catalog_store.path, self.repo.catalog_path)
+        self.assertEqual(repo.workplace_store.path, self.repo.config_path)
         with self.assertRaises(StorageError):
             JsonRepository(self.repo.catalog_path, self.repo.catalog_path)

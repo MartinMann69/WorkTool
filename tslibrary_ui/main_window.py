@@ -118,6 +118,8 @@ class MainWindow(WorkplaceTools, QMainWindow):
                 return
             self.session.applications[:] = loaded.applications
             self.session.websites[:] = loaded.websites
+            self.session.documentation = loaded.documentation
+            self.session.links[:] = loaded.links
         self.refresh()
 
     def _commit(self, config):

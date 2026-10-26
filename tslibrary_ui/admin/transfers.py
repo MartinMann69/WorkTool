@@ -26,6 +26,9 @@ class AdminDataTools:
                 QMessageBox.warning(self, "Could not export backup", str(error))
 
     def restore_catalog(self):
+        if self.documentation_page._busy():
+            QMessageBox.information(self, "Files are being copied", "Wait for the documentation file copy to finish before restoring the catalog.")
+            return
         path, _ = QFileDialog.getOpenFileName(self, "Restore catalog backup", "", "JSON (*.json)")
         if not path:
             return
@@ -40,7 +43,8 @@ class AdminDataTools:
             for page, names in [(self.licenses_page, ("license_window", "item_dialog", "delete_dialog")),
                                 (self.applications_page, ("application_dialog", "remove_application_dialog")),
                                 (self.phone_apps_page, ("phone_app_dialog", "remove_phone_app_dialog")),
-                                (self.websites_page, ("website_dialog", "remove_website_dialog"))]:
+                                (self.websites_page, ("website_dialog", "remove_website_dialog")),
+                                (self.documentation_page, ("files_dialog", "item_dialog", "remove_dialog"))]:
                 for name in names:
                     dialog = getattr(page, name, None)
                     if dialog is not None:
@@ -50,9 +54,13 @@ class AdminDataTools:
                             pass
             for field in ("applications", "websites", "phone_apps", "items"):
                 getattr(self.session, field)[:] = getattr(loaded, field)
+            self.session.documentation = loaded.documentation
+            self.session.links[:] = loaded.links
+            self.documentation_page.reload_settings()
             self.licenses_page.refresh_categories()
             for page in self.pages.values():
                 page.refresh()
+            self.refresh_related_entries()
             self.catalog_changed.emit()
         except StorageError as error:
             QMessageBox.warning(self, "Could not restore catalog", str(error))

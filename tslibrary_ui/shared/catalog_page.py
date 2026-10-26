@@ -7,7 +7,7 @@ No application, website, or license data is owned by this layout.
 from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QStackedWidget, QTableWidget,
-    QVBoxLayout, QWidget,
+    QVBoxLayout, QWidget, QSizePolicy,
 )
 
 from ..graphics.icons import admin_icon
@@ -21,6 +21,9 @@ class CatalogPage(QWidget):
     """Common layout for admin inventory pages."""
 
     add_requested = Signal()
+    refreshed = Signal()
+    editing = Signal(object, object)
+    entry_saved = Signal(object, object)
     title = ""
     description = ""
     empty_title = ""
@@ -53,6 +56,7 @@ class CatalogPage(QWidget):
         top.addWidget(caption("ADMINISTRATOR", "adminBadge", wrap=False))
         self.content_layout.addLayout(top)
         self.content_layout.addSpacing(36)
+        self.header_top_gap = self.content_layout.itemAt(self.content_layout.count() - 1).spacerItem()
         heading = QHBoxLayout()
         title_block = QVBoxLayout()
         title_block.setSpacing(9)
@@ -72,6 +76,14 @@ class CatalogPage(QWidget):
         heading.addWidget(self.add_button)
         self.content_layout.addLayout(heading)
         self.content_layout.addSpacing(30)
+        self.header_bottom_gap = self.content_layout.itemAt(self.content_layout.count() - 1).spacerItem()
+
+    def set_compact_header(self, compact):
+        self.header_top_gap.changeSize(0, 16 if compact else 36,
+                                      QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self.header_bottom_gap.changeSize(0, 12 if compact else 30,
+                                         QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self.content_layout.invalidate()
 
     def _build_toolbar(self):
         self.toolbar = QWidget()

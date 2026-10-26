@@ -26,7 +26,7 @@ class PreviewController(QObject):
         self.admin.catalog_changed.connect(self._save_catalog)
         self.main_window.back_requested.connect(self.show_welcome)
         if repository is not None:
-            self._catalog_status("SHARED CATALOG · SAVED LOCALLY")
+            self._catalog_status("SHARED CATALOG · SAVED")
         self.welcome.sign_in_requested.connect(self.show_admin)
         self.welcome.open_requested.connect(self.show_main)
         self.admin.back_requested.connect(self.show_welcome)
@@ -84,7 +84,8 @@ class PreviewController(QObject):
 
     def _catalog_status(self, text):
         for page in (self.admin.applications_page, self.admin.websites_page,
-                     self.admin.phone_apps_page, self.admin.licenses_page):
+                     self.admin.phone_apps_page, self.admin.licenses_page,
+                     self.admin.documentation_page):
             page.storage_status.setText(text + (" · KEYS SESSION ONLY" if page is self.admin.licenses_page else ""))
 
     def _save_catalog(self):
@@ -102,5 +103,5 @@ class PreviewController(QObject):
             return
         self._catalog_unsaved = False
         self.main_window.catalog_reload_blocked = False
-        self._catalog_status("SHARED CATALOG · SAVED LOCALLY")
+        self._catalog_status("SHARED CATALOG · SAVED")
         self.main_window.refresh()

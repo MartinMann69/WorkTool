@@ -16,6 +16,8 @@ from .entry_dialog import LicenseEntryDialog, DeleteLicenseDialog
 class LicenseWindow(QDialog):
     changed = Signal()
     details_changed = Signal()
+    editing = Signal(object, object)
+    entry_saved = Signal(object, object)
 
     def __init__(self, item, parent=None):
         super().__init__(parent)
@@ -93,6 +95,7 @@ class LicenseWindow(QDialog):
     def edit_item(self):
         dialog = ItemDialog(self, item=self.item)
         self.details_dialog = dialog
+        self.editing.emit(dialog, self.item)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.accepted.connect(lambda: self._save_details(dialog))
         dialog.open()
@@ -101,6 +104,7 @@ class LicenseWindow(QDialog):
         self.item.name, self.item.category = dialog.details()
         self.item.owner = dialog.owner_edit.text().strip()
         self.item.renewal_date = dialog.renewal_edit.text().strip()
+        self.entry_saved.emit(dialog, self.item)
         self.setWindowTitle(f"TSLibrary — Manage licenses · {self.item.name}")
         self.item_title.setText(self.item.name)
         self.category_label.setText(self._item_details())

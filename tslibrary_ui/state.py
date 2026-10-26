@@ -6,6 +6,8 @@ from .applications.models import Application
 from .licenses.models import LibraryItem
 from .phone_apps.models import PhoneApp
 from .websites.models import Website
+from .documentation.models import DocumentationCatalog
+from .relationships import CatalogLink
 
 
 @dataclass
@@ -14,6 +16,8 @@ class LibrarySession:
     applications: list[Application] = field(default_factory=list)
     websites: list[Website] = field(default_factory=list)
     phone_apps: list[PhoneApp] = field(default_factory=list)
+    documentation: DocumentationCatalog = field(default_factory=DocumentationCatalog)
+    links: list[CatalogLink] = field(default_factory=list)
 
 
 @dataclass

@@ -1,5 +1,7 @@
 #define AppName "TSLibrary"
-#define AppVersion "0.2.0"
+#ifndef AppVersion
+  #error Pass /DAppVersion via scripts/build_windows.ps1
+#endif
 
 [Setup]
 AppId={{3382D8A4-B091-476C-A1ED-C82D49754F0B}

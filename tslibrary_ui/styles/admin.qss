@@ -1,4 +1,18 @@
 QWidget#adminWindow, QWidget#adminMain { background: #181b18; }
+QFrame#documentationSettings { background: #1b221a; border: 1px solid #35402e; border-radius: 8px; }
+QFrame#relatedEntriesEditor { background: #1b221a; border: 1px solid #35402e; border-radius: 8px; }
+QToolButton#relatedLinksButton { background: #263020; color: #d6c4a2; border: 1px solid #555f42; border-radius: 5px; padding: 0 6px; font-size: 12px; }
+QToolButton#relatedLinksButton:hover, QToolButton#relatedLinksButton:focus { background: #36412c; border-color: #b2a17b; }
+QToolButton#relatedLinksButton[multiple="true"] { padding-right: 14px; }
+QToolButton#relatedLinksButton::menu-indicator { width: 9px; height: 9px; subcontrol-position: right center; }
+QListWidget#relatedPicker { background: #1b221a; color: #d8deca; border: 1px solid #35402e; border-radius: 7px; font-size: 12px; }
+QListWidget#relatedPicker::item { padding: 12px; border-bottom: 1px solid #303a29; }
+QListWidget#relatedPicker::item:selected { background: #303c28; color: #eee8dc; }
+QListWidget#relatedPicker::indicator { width: 17px; height: 17px; }
+QPushButton#emptyAction:disabled { color: #77816c; border-color: #35402e; background: #20261d; }
+QListWidget#documentationFiles { background: #1b221a; color: #d8deca; border: 1px solid #35402e; border-radius: 7px; padding: 5px; font-size: 12px; }
+QListWidget#documentationFiles::item { padding: 12px; border-bottom: 1px solid #303a29; }
+QListWidget#documentationFiles::item:selected { background: #303c28; color: #eee8dc; }
 QFrame#adminSidebar { background: #131a14; border-right: 1px solid #30392c; }
 QLabel#sideCaption { color: #a1a88d; font-size: 10px; letter-spacing: 1.7px; }
 QLabel#sideQuote { color: #a1a88d; font-family: Georgia; font-size: 13px; }

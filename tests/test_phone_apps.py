@@ -54,7 +54,9 @@ class PhoneAppChecks(unittest.TestCase):
         self.assertEqual(entry.name, "Teams ツール")
         self.assertEqual(self.page.table.item(0, 0).text(), entry.name)
         self.assertFalse(self.page.table.item(0, 0).icon().isNull())
-        self.assertEqual(self.page.table.columnCount(), 2)
+        self.assertEqual(sum(not self.page.table.isColumnHidden(column)
+                             for column in range(self.page.table.columnCount())), 2)
+        self.assertTrue(self.page.table.isColumnHidden(self.page.links_column))
         self.assertEqual(self.page.count_label.text(), "Showing 1 of 1 phone app")
 
     def test_blank_names_and_cancel_keep_inventory(self):

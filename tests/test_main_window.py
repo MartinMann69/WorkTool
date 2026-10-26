@@ -40,7 +40,8 @@ class MainWindowChecks(unittest.TestCase):
         self.assertFalse(controller.admin.isVisible())
         self.assertFalse(controller.welcome.isVisible())
         self.assertEqual(controller.main_window.windowTitle(), "TSLibrary — Your workplace")
-        self.assertEqual([controller.main_window.tabs.tabText(i) for i in range(3)],
+        self.assertEqual([controller.main_window.tabs.tabText(i)
+                          for i in range(controller.main_window.tabs.count())],
                          ["Websites", "Applications", "Collection"])
         self.assertEqual(controller.main_window.applications_page.model.rowCount(), 0)
         self.assertEqual(controller.main_window.collection_page.model.rowCount(), 1)

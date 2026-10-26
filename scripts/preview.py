@@ -22,6 +22,7 @@ from tslibrary_ui.licenses import (
     LicenseWindow,
 )
 from tslibrary_ui.workplace.models import entry_key, workplace_entries
+from preview_documentation import save_documentation_previews
 
 
 def save_preview(app, window, destination):
@@ -108,6 +109,7 @@ def main():
     app = create_app()
     output = ROOT / "previews"
     output.mkdir(exist_ok=True)
+    save_documentation_previews(app, output)
     main_window = MainWindow()
     save_preview(app, main_window, output / "main.png")
     main_window.close()
