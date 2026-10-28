@@ -3,12 +3,13 @@
 from PySide6.QtCore import Qt, QSignalBlocker
 from PySide6.QtWidgets import (
     QAbstractItemView, QComboBox, QDialog, QFrame, QHBoxLayout, QLineEdit,
-    QListWidget, QListWidgetItem, QMenu, QToolButton, QVBoxLayout,
+    QListWidget, QListWidgetItem, QMenu, QTabWidget, QToolButton, QVBoxLayout,
 )
 
 from ..graphics.icons import admin_icon
-from ..relationships import ENTRY_TYPES, catalog_entries, related_entries
+from ..relationships import ENTRY_TYPES, EntryRef, catalog_entries, related_entries
 from ..shared.forms import action, caption
+from ..documentation.picker import DocumentationPicker
 
 
 def entry_details(ref, entry):
@@ -16,20 +17,44 @@ def entry_details(ref, entry):
             or getattr(entry, "category", "") or ENTRY_TYPES[ref.kind][0])
 
 
+def materialize_documentation(session, selected, pending):
+    """Register selected draft paths only when the owning item is saved."""
+    refs = set(selected)
+    by_path = {entry.name.casefold(): entry for entry in session.documentation.items}
+    for entry in pending.values():
+        ref = EntryRef("documentation", entry.id)
+        if ref not in refs:
+            continue
+        existing = by_path.get(entry.name.casefold())
+        if existing is None:
+            session.documentation.items.append(entry)
+            by_path[entry.name.casefold()] = entry
+        elif existing.id != entry.id:
+            refs.discard(ref)
+            refs.add(EntryRef("documentation", existing.id))
+    return refs
+
+
 class RelatedEntriesDialog(QDialog):
     """Stage checkboxes locally; the owner applies them only after Save."""
 
-    def __init__(self, session, source, parent=None, *, selected=None, name=None):
+    def __init__(self, session, source, parent=None, *, selected=None, name=None, pending=()):
         super().__init__(parent)
         self.source = source
         self.original_group = {source, *related_entries(session, source)}
         self.session = session
+        self._selected = set(related_entries(session, source) if selected is None else selected)
+        self.pending_documentation = {entry.id: entry for entry in pending}
+        self.separate_documentation = (source.kind if source is not None else getattr(parent, "entry_kind", "")) != "documentation"
         entries = catalog_entries(session)
         name = name or (entries[source].name if source in entries else "New item")
         self.setObjectName("inventoryDialog")
         self.setWindowTitle(f"Related entries — {name}")
         self.setMinimumSize(570, 460)
-        self.resize(660, 570)
+        if self.separate_documentation:
+            self.resize(720, 680)
+        else:
+            self.resize(660, 570)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(26, 24, 26, 24)
         layout.setSpacing(14)
@@ -47,7 +72,8 @@ class RelatedEntriesDialog(QDialog):
         self.type_filter.setAccessibleName("Related entry type")
         self.type_filter.addItem("All types", "")
         for kind, (label, _) in ENTRY_TYPES.items():
-            self.type_filter.addItem(label, kind)
+            if kind != "documentation" or not self.separate_documentation:
+                self.type_filter.addItem(label, kind)
         self.type_filter.setMinimumHeight(42)
         filters.addWidget(self.type_filter)
         layout.addLayout(filters)
@@ -56,19 +82,30 @@ class RelatedEntriesDialog(QDialog):
         self.entries_list.setAccessibleName("Existing catalog entries; check to link")
         self.entries_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.entries_list.setWordWrap(True)
-        selected = set(related_entries(session, source) if selected is None else selected)
         for ref, target in sorted(entries.items(), key=lambda pair: (
                 pair[0].kind, pair[1].name.casefold(), pair[0].id)):
-            if ref == source:
+            if ref == source or (ref.kind == "documentation" and self.separate_documentation):
                 continue
             details = entry_details(ref, target)
             row = QListWidgetItem(f"{ENTRY_TYPES[ref.kind][0]}  ·  {target.name}\n{details}")
             row.setData(Qt.ItemDataRole.UserRole, ref)
             row.setToolTip(f"{target.name}\n{details}\nID: {ref.id}")
             row.setFlags(row.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            row.setCheckState(Qt.CheckState.Checked if ref in selected else Qt.CheckState.Unchecked)
+            row.setCheckState(Qt.CheckState.Checked if ref in self._selected else Qt.CheckState.Unchecked)
             self.entries_list.addItem(row)
-        layout.addWidget(self.entries_list, 1)
+        self.documentation_picker = None
+        self.tabs = None
+        if self.separate_documentation:
+            self.tabs = QTabWidget()
+            self.tabs.setObjectName("relatedTabs")
+            self.tabs.addTab(self.entries_list, "Library entries")
+            self.documentation_picker = DocumentationPicker(session.documentation, self._selected, pending, self)
+            self.documentation_picker.selection_changed.connect(self.set_ref_checked)
+            self.tabs.addTab(self.documentation_picker, "Documentation")
+            self.tabs.currentChanged.connect(self._tab_changed)
+            layout.addWidget(self.tabs, 1)
+        else:
+            layout.addWidget(self.entries_list, 1)
         self.summary = caption("", "adminMuted")
         layout.addWidget(self.summary)
         buttons = QHBoxLayout()
@@ -86,9 +123,13 @@ class RelatedEntriesDialog(QDialog):
         self.filter_entries()
 
     def selected_refs(self):
-        return {self.entries_list.item(index).data(Qt.ItemDataRole.UserRole)
-                for index in range(self.entries_list.count())
-                if self.entries_list.item(index).checkState() == Qt.CheckState.Checked}
+        return set(self._selected)
+
+    def _tab_changed(self, *_):
+        documentation = self.tabs.currentIndex() == 1
+        self.type_filter.setVisible(not documentation)
+        self.search.setPlaceholderText("Search documentation folders and files" if documentation else "Search entries by name or details")
+        self.filter_entries()
 
     def filter_entries(self, *_):
         query, kind = self.search.text().strip().casefold(), self.type_filter.currentData()
@@ -99,20 +140,37 @@ class RelatedEntriesDialog(QDialog):
             show = (not kind or kind == ref.kind) and query in row.text().casefold()
             row.setHidden(not show)
             visible += show
+        if self.documentation_picker is not None:
+            self.documentation_picker.search(self.search.text() if self.tabs.currentIndex() == 1 else "")
+        if self.tabs is not None and self.tabs.currentIndex() == 1:
+            docs = sum(ref.kind == "documentation" for ref in self._selected)
+            self.summary.setText(f"{len(self._selected)} selected · {docs} documentation files/folders")
+            return
         self.summary.setText(f"{len(self.selected_refs())} selected · {visible} matching entries" if visible
                              else f"{len(self.selected_refs())} selected · No matching entries. Try another search or type.")
 
     def _selection_changed(self, row):
         ref = row.data(Qt.ItemDataRole.UserRole)
-        if row.checkState() == Qt.CheckState.Checked and ref not in self.original_group:
+        self.set_ref_checked(ref, row.checkState() == Qt.CheckState.Checked)
+
+    def set_ref_checked(self, ref, checked):
+        if ref == self.source:
+            return
+        if checked:
+            self._selected.add(ref)
+        else:
+            self._selected.discard(ref)
+        if checked and ref not in self.original_group:
             # Show the whole group being joined, including entries hidden by a
             # search/type filter. Further unchecking can split off any member.
-            group = set(related_entries(self.session, ref))
-            with QSignalBlocker(self.entries_list):
-                for index in range(self.entries_list.count()):
-                    candidate = self.entries_list.item(index)
-                    if candidate.data(Qt.ItemDataRole.UserRole) in group:
-                        candidate.setCheckState(Qt.CheckState.Checked)
+            self._selected.update(set(related_entries(self.session, ref)) - {self.source})
+        with QSignalBlocker(self.entries_list):
+            for index in range(self.entries_list.count()):
+                candidate = self.entries_list.item(index)
+                candidate.setCheckState(Qt.CheckState.Checked if candidate.data(Qt.ItemDataRole.UserRole) in self._selected else Qt.CheckState.Unchecked)
+        if self.documentation_picker is not None:
+            self.pending_documentation.update(self.documentation_picker.pending)
+            self.documentation_picker.set_selected(self._selected)
         self.filter_entries()
 
 
@@ -123,6 +181,7 @@ class RelatedEntriesEditor(QFrame):
         super().__init__(dialog)
         self.session, self.source, self.dialog = session, source, dialog
         self.selected_refs = set(related_entries(session, source))
+        self.pending_documentation = {}
         self.picker = None
         self.setObjectName("relatedEntriesEditor")
         layout = QVBoxLayout(self)
@@ -145,13 +204,16 @@ class RelatedEntriesEditor(QFrame):
         if self.picker is not None:
             self.picker.deleteLater()
         picker = RelatedEntriesDialog(self.session, self.source, self.dialog,
-                                      selected=self.selected_refs, name=self.dialog.name_edit.text().strip())
+                                      selected=self.selected_refs, name=self.dialog.name_edit.text().strip(),
+                                      pending=self.pending_documentation.values())
         self.picker = picker
         picker.accepted.connect(lambda: self._use_selection(picker))
         picker.open()
 
     def _use_selection(self, picker):
         self.selected_refs = picker.selected_refs()
+        self.pending_documentation = {identifier: entry for identifier, entry in picker.pending_documentation.items()
+                                      if EntryRef("documentation", identifier) in self.selected_refs}
         self.refresh()
 
     def close_picker(self, *_):
@@ -160,6 +222,7 @@ class RelatedEntriesEditor(QFrame):
 
     def refresh(self):
         entries = catalog_entries(self.session)
+        entries.update({EntryRef("documentation", entry.id): entry for entry in self.pending_documentation.values()})
         selected = [ref for ref in self.selected_refs if ref in entries]
         types = [label for kind, (label, _) in ENTRY_TYPES.items() if any(ref.kind == kind for ref in selected)]
         self.summary.setText(f"{len(selected)} related · {', '.join(types)}. Saved with this item."

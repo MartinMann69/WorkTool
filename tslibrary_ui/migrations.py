@@ -52,5 +52,13 @@ def catalog_v1_to_v2(data):
     return data
 
 
-CATALOG_SCHEMA = DataSchema("catalog", current_version=2, migrations={1: catalog_v1_to_v2})
+def catalog_v2_to_v3(data):
+    """Existing documentation entries are folders; retain their IDs and paths."""
+    for item in data.get("documentation", {}).get("items", []):
+        item.setdefault("kind", "folder")
+    data["version"] = 3
+    return data
+
+
+CATALOG_SCHEMA = DataSchema("catalog", current_version=3, migrations={1: catalog_v1_to_v2, 2: catalog_v2_to_v3})
 WORKPLACE_SCHEMA = DataSchema("workplace", current_version=1, migrations={})

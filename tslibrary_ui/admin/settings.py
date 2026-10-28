@@ -181,8 +181,8 @@ class SettingsPage(QWidget):
             files = DocumentationFiles(proposed)
             destination = files.root()
             if docs.items:
-                if any(not files.item_path(item.name).is_dir() for item in docs.items):
-                    raise DocumentationError("The new location must contain every existing documentation folder. Copy the files there before saving this path.")
+                if any(not (files.item_path(item.name).is_file() if item.kind == "file" else files.item_path(item.name).is_dir()) for item in docs.items):
+                    raise DocumentationError("The new location must contain every existing documentation folder and linked file. Copy the files there before saving this path.")
             else:
                 destination.mkdir(exist_ok=True)
             docs.parent_path, docs.root_name = parent, root_name

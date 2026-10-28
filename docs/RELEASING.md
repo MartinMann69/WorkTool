@@ -4,7 +4,7 @@ The Windows installer contains Python and all runtime dependencies. Recipients n
 
 ## Build a release
 
-1. Set the app release number in `tslibrary_ui/version.py` (currently `0.5.2`). This is the single source used by the app and build script; it is independent of saved-data schema versions.
+1. Set the app release number in `tslibrary_ui/version.py` (currently `0.6.0`). This is the single source used by the app and build script; it is independent of saved-data schema versions.
 2. Run the regression suite: `.venv\Scripts\python -m unittest discover -s tests -v`. On a restricted Windows runner, set `TEMP` and `TMP` to a writable temporary directory. The single-instance tests need permission to create local named pipes.
 3. Install build dependencies if needed: `.venv\Scripts\python -m pip install -r requirements.txt -r requirements-build.txt`. Install Inno Setup 6 on the build PC.
 4. Run `scripts\build_windows.ps1` (or pass `-InnoCompiler 'C:\Path\To\ISCC.exe'`). It produces `dist\TSLibrary-Setup-<version>.exe` and a matching `.sha256` file. Keep the build on Windows; PyInstaller is not a cross-compiler.
@@ -17,7 +17,7 @@ Send the setup EXE to users. They should close the app and run the newer setup o
 
 UI-only changes need no data migration. A new optional preference with a fallback can be read from old files, but consider whether an older app would discard that preference on save. Renaming stored fields, changing their types/nesting, removing required fields, or introducing information an older writer would lose requires a data-version change and a tested migration.
 
-Catalog format is now 2; workplace and team-configuration formats remain 1. The shipped catalog v1→v2 step replaces admin-specific executable paths with portable target references while preserving IDs, arguments, relationships, and documentation metadata. Shared upgrades use the catalog lock and the same exact-backup/atomic-write mechanism as local upgrades. Install 0.5.0 on both admin PCs before using the shared catalog; 0.4.x cannot open or edit format 2. Do not bump them merely because the app release version changes. For an actual future format change:
+Catalog format is now 3; workplace and team-configuration formats remain 1. The catalog v1→v2 step replaces admin-specific executable paths with portable target references. The v2→v3 step marks existing documentation records as folders so individual file references can also be saved. Both preserve IDs, arguments, relationships, paths, and documentation metadata. Shared upgrades use the catalog lock and the same exact-backup/atomic-write mechanism as local upgrades. Install 0.6.0 on both admin PCs before using the upgraded shared catalog; 0.5.x and older cannot open or edit format 3. App-only version changes need no format bump. For an actual future format change:
 
 1. Add a pure conversion function in `tslibrary_ui/migrations.py`. Register it under its OLD version and increment the appropriate `DataSchema.current_version`. Keep previous steps.
 2. Update the matching serializer and decoder in `storage.py` to use the new shape. Both serializers already emit their schema's current version.

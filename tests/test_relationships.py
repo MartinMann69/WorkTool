@@ -138,6 +138,12 @@ class RelationshipChecks(unittest.TestCase):
             row = picker.entries_list.item(index)
             if row.data(Qt.ItemDataRole.UserRole) not in refs:
                 row.setCheckState(Qt.CheckState.Unchecked)
+        if picker.documentation_picker is not None:
+            for ref in refs:
+                if ref.kind == "documentation":
+                    picker.set_ref_checked(ref, True)
+            for ref in picker.selected_refs() - refs:
+                picker.set_ref_checked(ref, False)
         return picker
 
     def assert_group(self, session, refs):
@@ -246,7 +252,8 @@ class RelationshipChecks(unittest.TestCase):
         saved = QSignalSpy(admin.catalog_changed)
         dialog = self.open_editor(self.website)
         picker = self.choose_links(dialog, {self.source, self.license})
-        self.assertEqual(picker.entries_list.count(), len(catalog_entries(self.session)) - 1)
+        self.assertEqual(picker.entries_list.count(), len(catalog_entries(self.session)) - 2)
+        self.assertEqual(picker.tabs.tabText(1), "Documentation")
         picker.search.setText("Studio guide")
         self.assertEqual(picker.selected_refs(), {self.source, self.license})
         picker.cancel_button.click()

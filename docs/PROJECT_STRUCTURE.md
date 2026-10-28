@@ -68,6 +68,7 @@ tslibrary_ui/
         page.py                 Documentation folder navigation, inventory, and file browsing
         navigation.py           Folder/file projections, navigator, and name rendering
         browser_files.py        Background directory reads and committed deletion cleanup
+        picker.py               Lazy file/folder tree and staged documentation link targets
         dialogs.py              Item names, file listing, and background file import
     websites/
         models.py               Website data

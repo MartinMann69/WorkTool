@@ -157,9 +157,12 @@ class WindowStateManager(QObject):
         if key is None or watched in self._restoring:
             return False
         if kind == QEvent.Type.Polish and isinstance(watched, QDialog):
-            watched.setWindowFlags((watched.windowFlags() | Qt.WindowType.WindowMaximizeButtonHint
-                                    | Qt.WindowType.WindowMinimizeButtonHint)
-                                   & ~Qt.WindowType.WindowContextHelpButtonHint)
+            # Inverting a PySide WindowType flag can truncate higher bits,
+            # including WindowCloseButtonHint. Mask integer bits instead.
+            flags = int(watched.windowFlags()) & ~int(Qt.WindowType.WindowContextHelpButtonHint)
+            flags |= int(Qt.WindowType.WindowMaximizeButtonHint
+                         | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
+            watched.setWindowFlags(Qt.WindowType(flags))
         elif kind == QEvent.Type.Show:
             if watched in self._ready and (key != "main" or watched is self.active_main):
                 # Maximize/restore/minimize can generate Show again for an

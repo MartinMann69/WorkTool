@@ -12,6 +12,36 @@ from .files import DocumentationError, DocumentationFiles
 from .models import item_name
 
 
+class DocumentationConnectionsDialog(QDialog):
+    def __init__(self, path, kind, parent=None):
+        super().__init__(parent)
+        self.setObjectName("inventoryDialog")
+        self.setWindowTitle("TSLibrary — Documentation connections")
+        self.setMinimumWidth(480)
+        self.resize(620, 360)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(28, 26, 28, 26)
+        layout.setSpacing(12)
+        layout.addWidget(caption("DOCUMENTATION  /  CONNECTIONS", "adminEyebrow"))
+        layout.addWidget(caption("Connect this " + kind, "dialogHeading"))
+        self.name_edit = QLineEdit(path)
+        self.name_edit.setObjectName("dialogInput")
+        self.name_edit.setReadOnly(True)
+        self.name_edit.setAccessibleName("Documentation path")
+        layout.addWidget(self.name_edit)
+        self.error = caption("", "formError")
+        layout.addWidget(self.error)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        cancel = action("Cancel")
+        cancel.clicked.connect(self.reject)
+        buttons.addWidget(cancel)
+        self.save_button = action("Save connections", "adminPrimary")
+        self.save_button.clicked.connect(self.accept)
+        buttons.addWidget(self.save_button)
+        layout.addLayout(buttons)
+
+
 class DocumentationItemDialog(QDialog):
     def __init__(self, parent=None, *, item=None, folder="", folders=()):
         super().__init__(parent)

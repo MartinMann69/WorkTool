@@ -30,6 +30,7 @@ def item_name(value):
 class DocumentationItem:
     name: str
     id: str = field(default_factory=lambda: uuid4().hex)
+    kind: str = "folder"
 
 
 @dataclass
@@ -41,7 +42,7 @@ class DocumentationCatalog:
 
 def documentation_data(catalog):
     return dict(parent_path=catalog.parent_path, root_name=catalog.root_name,
-                items=[dict(id=item.id, name=item.name) for item in catalog.items])
+                items=[dict(id=item.id, name=item.name, kind=item.kind) for item in catalog.items])
 
 
 def decode_documentation(data):
@@ -64,7 +65,14 @@ def decode_documentation(data):
         name = item_name(record.get("name"))
         if name.casefold() in names:
             raise ValueError("Documentation folder names must be unique.")
+        kind = record.get("kind", "folder")
+        if kind not in ("folder", "file"):
+            raise ValueError("Documentation must refer to a file or folder.")
         ids.add(identifier)
         names.add(name.casefold())
-        items.append(DocumentationItem(name, identifier))
+        items.append(DocumentationItem(name, identifier, kind))
+    file_names = {item.name.casefold() for item in items if item.kind == "file"}
+    if any("/".join(item.name.casefold().split("/")[:depth]) in file_names
+           for item in items for depth in range(1, len(item.name.split("/")))):
+        raise ValueError("A documentation file cannot contain other documentation entries.")
     return DocumentationCatalog(parent, root, items)

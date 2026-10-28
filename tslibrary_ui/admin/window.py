@@ -19,7 +19,7 @@ from ..styles import load_stylesheets
 from ..websites.page import WebsitesPage
 from .sidebar import AdminSidebar
 from .transfers import AdminDataTools
-from .relationships import RelatedEntriesEditor, row_links_button
+from .relationships import RelatedEntriesEditor, row_links_button, materialize_documentation
 from .settings import SettingsPage
 
 
@@ -99,6 +99,7 @@ class AdminWindow(AdminDataTools, QWidget):
             self._refresh_row_links(kind)
 
     def _prepare_editor(self, kind, dialog, entry):
+        dialog.entry_kind = kind
         source = EntryRef(kind, entry.id) if entry is not None else None
         dialog.related_editor = RelatedEntriesEditor(self.session, source, dialog)
         # Keep link selection with the fields, above validation and Save/Cancel.
@@ -106,7 +107,11 @@ class AdminWindow(AdminDataTools, QWidget):
         layout.insertWidget(layout.count() - 2, dialog.related_editor)
 
     def _save_editor_links(self, kind, dialog, entry):
-        replace_links(self.session, EntryRef(kind, entry.id), dialog.related_editor.selected_refs)
+        editor = dialog.related_editor
+        selected = materialize_documentation(self.session, editor.selected_refs, editor.pending_documentation)
+        replace_links(self.session, EntryRef(kind, entry.id), selected)
+        if kind != "documentation":
+            self.documentation_page.refresh()
 
     def _refresh_row_links(self, kind):
         page = self.relationship_pages[kind]

@@ -17,11 +17,11 @@ from ..shared.forms import action, caption
 from ..shared.tables import button_cell, cell, preserve_selection
 from ..storage import StorageError
 from ..relationships import valid_links
-from .dialogs import DocumentationItemDialog, ImportFiles
+from .dialogs import DocumentationConnectionsDialog, DocumentationItemDialog, ImportFiles
 from .browser_files import ReadDirectory, DeleteStaged
 from .files import DocumentationError, DocumentationFiles
 from .models import DocumentationItem, DocumentationCatalog
-from .navigation import DocumentationFolders, DocumentationNameDelegate, PARENT_ROLE, FOLDER_ROLE, FILE_ROLE, browse_rows
+from .navigation import DocumentationFolders, DocumentationNameDelegate, DocumentationStatus, PARENT_ROLE, FOLDER_ROLE, FILE_ROLE, browse_rows
 
 
 class DocumentationPage(CatalogPage):
@@ -122,9 +122,15 @@ class DocumentationPage(CatalogPage):
         self.folder_bar.addWidget(self.refresh_files_button)
         self.content_layout.insertWidget(index, bar)
         self.content_layout.insertSpacing(index + 1, 10)
-        self.file_message = caption("", "adminMuted")
-        self.file_message.hide()
-        self.content_layout.insertWidget(index + 2, self.file_message)
+
+    def _build_footer(self):
+        super()._build_footer()
+        bottom = self.content_layout.itemAt(self.content_layout.count() - 1).layout()
+        bottom.takeAt(1)  # Replace the footer's stretch with the status label.
+        bottom.insertSpacing(1, 16)
+        self.file_message = DocumentationStatus()
+        self.file_message.setFixedHeight(self.count_label.sizeHint().height())
+        bottom.insertWidget(2, self.file_message, 1)
 
     def _folder_changed(self, current, _previous):
         if current is not None:
@@ -215,7 +221,7 @@ class DocumentationPage(CatalogPage):
     def _update_file_message(self):
         text = self._import_message if self.busy else self._directory_error or ("Loading files…" if self.directory_loading else self._import_message)
         self.file_message.setText(text)
-        self.file_message.setVisible(bool(text))
+        self.file_message.setToolTip(text)
         self.explorer_button.setEnabled(not self.busy)
         self.add_files_button.setEnabled(not self.busy and not self.directory_loading and not self._directory_error)
         self.refresh_files_button.setEnabled(not self.busy and not self.directory_loading)
@@ -263,10 +269,53 @@ class DocumentationPage(CatalogPage):
 
     def _item_menu(self, path, parent):
         menu = QMenu(parent)
+        menu.addAction(admin_icon("links"), "Connections…", lambda: self.connect_path(path))
+        item = next((entry for entry in self.catalog.items if entry.name.casefold() == path.casefold()), None)
+        if item is not None and item.kind == "folder":
+            menu.addAction(admin_icon("edit"), "Edit folder…", lambda: self.add_item(item))
+        menu.addSeparator()
         menu.addAction("Move to…", lambda: self.choose_move(path))
         menu.addSeparator()
         menu.addAction("Delete…", lambda: self.confirm_delete_path(path))
         return menu
+
+    def connect_path(self, path):
+        if not self.editable or self.busy:
+            return
+        item = next((entry for entry in self.catalog.items if entry.name.casefold() == path.casefold()), None)
+        try:
+            if item is None:
+                target = DocumentationFiles(self.catalog).managed_path(path)
+                item = DocumentationItem(path, kind="folder" if target.is_dir() else "file")
+        except (OSError, ValueError, DocumentationError) as error:
+            self._import_message = str(error)
+            self._update_file_message()
+            return
+        dialog = DocumentationConnectionsDialog(item.name, item.kind, self)
+        self.item_dialog = dialog
+        self.editing.emit(dialog, item)
+        dialog.accepted.connect(lambda: self._save_connections(dialog, item))
+        dialog.open()
+
+    def _save_connections(self, dialog, item):
+        old_items, old_links = list(self.catalog.items), list(self.session.links)
+        try:
+            with self.write_guard():
+                try:
+                    if not any(entry.id == item.id for entry in self.catalog.items):
+                        self.catalog.items.append(item)
+                    self.entry_saved.emit(dialog, item)
+                    self.persist_change()
+                except (OSError, ValueError, DocumentationError, StorageError):
+                    self.catalog.items[:] = old_items
+                    self.session.links[:] = old_links
+                    raise
+        except (OSError, ValueError, DocumentationError, StorageError) as error:
+            dialog.error.setText(str(error))
+            dialog.show()
+            return
+        self.filesystem_changed.emit()
+        self.refresh()
 
     def _row_context_menu(self, position):
         if self.busy:
@@ -445,10 +494,14 @@ class DocumentationPage(CatalogPage):
         self.open_item(item)
 
     def open_item(self, item):
-        self.navigate_folder(item.name)
+        if item.kind == "file":
+            self.navigate_folder(item.name.rpartition("/")[0])
+            self.open_file(item.name)
+        else:
+            self.navigate_folder(item.name)
 
     def open_files(self, item):
-        self.navigate_folder(item.name)
+        self.open_item(item)
 
     def _open_row(self, row, column):
         path = self.table.item(row, 0).data(FILE_ROLE)
@@ -524,14 +577,13 @@ class DocumentationPage(CatalogPage):
                 files.clicked.connect(lambda checked=False, path=result.path: self.open_file(path))
             buttons = [files]
             if self.editable:
-                if item is not None:
-                    rename = action("")
-                    rename.setIcon(admin_icon("edit"))
-                    rename.setFixedWidth(34)
-                    rename.setToolTip(f"Edit documentation: {item.name}")
-                    rename.setAccessibleName(f"Edit documentation: {item.name}")
-                    rename.clicked.connect(lambda checked=False, entry=item: self.add_item(entry))
-                    buttons.append(rename)
+                connect = action("")
+                connect.setIcon(admin_icon("links"))
+                connect.setFixedWidth(34)
+                connect.setToolTip(f"Edit connections: {result.path}")
+                connect.setAccessibleName(f"Edit connections: {result.path}")
+                connect.clicked.connect(lambda checked=False, path=result.path: self.connect_path(path))
+                buttons.append(connect)
                 more = action("")
                 more.setIcon(admin_icon("more", "#d9c39f"))
                 more.setProperty("iconOnly", True)

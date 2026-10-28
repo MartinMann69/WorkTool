@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 
 from PySide6.QtCore import QRect, Qt, QSignalBlocker
-from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem, QTreeWidget, QTreeWidgetItem
+from PySide6.QtGui import QColor, QPainter, QPalette
+from PySide6.QtWidgets import QLabel, QSizePolicy, QStyle, QStyledItemDelegate, QStyleOptionViewItem, QTreeWidget, QTreeWidgetItem
 
 from ..graphics.icons import admin_icon
 from ..graphics.typography import sans
@@ -13,6 +13,22 @@ from ..graphics.typography import sans
 PARENT_ROLE = Qt.ItemDataRole.UserRole + 1
 FOLDER_ROLE = Qt.ItemDataRole.UserRole + 2
 FILE_ROLE = Qt.ItemDataRole.UserRole + 3
+
+
+class DocumentationStatus(QLabel):
+    """Single-line footer status; long messages remain available as a tooltip."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("adminMuted")
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setMinimumWidth(0)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setPen(self.palette().color(QPalette.ColorRole.WindowText))
+        text = self.fontMetrics().elidedText(self.text().replace("\n", " "), Qt.TextElideMode.ElideRight, self.contentsRect().width())
+        painter.drawText(self.contentsRect(), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
 
 
 @dataclass(frozen=True)
@@ -29,14 +45,14 @@ class BrowserRow:
 def browse_rows(entries, folder="", query="", alphabetical=False, disk_entries=()):
     """A directory listing normally; explicit recursive results when searching.
 
-    Registered documentation locations are folders. Their files and actual
-    subfolders merge into the same list without duplicating catalog folders.
+    Registered files/folders and actual directory contents merge into the same
+    list without duplicating paths or treating linked files as folders.
     """
     parents = {}
     records = {entry.name.casefold(): entry for entry in entries}
     for entry in entries:
         parts = entry.name.split("/")
-        for depth in range(1, len(parts) + 1):
+        for depth in range(1, len(parts) + (entry.kind == "folder")):
             path = "/".join(parts[:depth])
             parents.setdefault(path.casefold(), path)
     def row(path, entry=None):
@@ -46,10 +62,13 @@ def browse_rows(entries, folder="", query="", alphabetical=False, disk_entries=(
         return BrowserRow(path, entry, is_folder, count)
     scope = folder.casefold()
     result = {key: row(path, records.get(key)) for key, path in parents.items()}
+    for entry in entries:
+        if entry.kind == "file":
+            result[entry.name.casefold()] = BrowserRow(entry.name, entry, False, file=True)
     for disk in disk_entries:
         key = disk["path"].casefold()
-        if key not in result:
-            result[key] = BrowserRow(disk["path"], None, disk["folder"], file=not disk["folder"],
+        if key not in result or (key in records and records[key].kind == "file"):
+            result[key] = BrowserRow(disk["path"], records.get(key), disk["folder"], file=not disk["folder"],
                                      size=disk["size"], modified=disk["modified"])
     result = [item for item in result.values() if (not scope or item.path.casefold().startswith(scope + "/"))
               and (query in item.path.casefold() if query else item.path.rpartition("/")[0].casefold() == scope)]
@@ -71,7 +90,7 @@ class DocumentationFolders(QTreeWidget):
 
     def rebuild(self, entries, selected, extra_paths=()):
         canonical = {}
-        for name in [item.name for item in entries] + list(extra_paths):
+        for name in [item.name if item.kind == "folder" else item.name.rpartition("/")[0] for item in entries] + list(extra_paths):
             for index in range(1, len(name.split("/")) + 1):
                 path = "/".join(name.split("/")[:index])
                 if not path:
