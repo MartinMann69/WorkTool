@@ -12,11 +12,14 @@ tslibrary_ui/
     app.py                      QApplication, fonts, palette, startup arguments
     single_instance.py          Exclusive Windows instance and local window activation
     navigation.py               Welcome/main/admin/library transitions and shared session
+    window_state.py             Shared main-window placement and local dialog size/state preferences
     main_window.py              User tabs, selection/personal-entry actions, and repository calls
     transfers.py                Validated catalog/workplace backups and CSV exports
     state.py                    Catalog session and per-user WorkplaceConfig dataclasses
     relationships.py            Typed, bidirectional catalog links and JSON validation
     storage.py                  Separate catalog/local workplace adapters and JSON codecs
+    team_config.py              Portable team connections, shared locks, and stale-write protection
+    catalog_refresh.py          Background reads of shared catalog bytes
     migrations.py               Saved-data versions and sequential format conversions
     version.py                  App release version used by Qt and the Windows build
     workplace/
@@ -37,6 +40,7 @@ tslibrary_ui/
         window.py               Admin shell: creates pages and switches tabs
         relationships.py        Draft links in item editors, picker, and row navigation buttons
         sidebar.py              Navigation, branding, and back button
+        settings.py             Team configuration selection and documentation defaults
     welcome/
         window.py               Welcome layout, copy, signals, and animation
         widgets.py              InputField, password toggle, primary button
@@ -51,6 +55,8 @@ tslibrary_ui/
         page.py                 Table, search, add/edit/remove actions
         dialogs.py              Application editor and removal confirmation
         targets.py              File-path validation and argument parsing
+        portable.py             Portable reference validation and user-folder rebasing
+        resolver.py             Current-PC shortcuts, installed-app registration, and path lookup
         icons.py                Windows executable/shortcut icon lookup
     phone_apps/
         models.py               Name-only phone app inventory entries
@@ -58,8 +64,10 @@ tslibrary_ui/
         dialogs.py              Name editor and removal confirmation
     documentation/
         models.py               Shared root settings, named items, and path validation
-        files.py                Folder creation/rename, exclusive file copies, and browsing
-        page.py                 Admin documentation storage controls and file browsing
+        files.py                Folder lifecycle, guarded moves/deletion, exclusive copies, browsing
+        page.py                 Documentation folder navigation, inventory, and file browsing
+        navigation.py           Folder/file projections, navigator, and name rendering
+        browser_files.py        Background directory reads and committed deletion cleanup
         dialogs.py              Item names, file listing, and background file import
     websites/
         models.py               Website data

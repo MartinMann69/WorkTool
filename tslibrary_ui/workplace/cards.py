@@ -30,10 +30,13 @@ class WorkplaceDelegate(CatalogDelegate):
         p = painter
         p.save()
         p.setRenderHint(p.RenderHint.Antialiasing)
-        p.setFont(sans(10, .2))
-        p.setPen(QColor("#aab99a"))
+        p.setFont(sans(12, .2))
+        p.setPen(QColor("#c5d1b5"))
         source = ("PINNED · " if entry.favorite else "") + ("PERSONAL" if entry.source == "personal" else "FROM COLLECTION")
-        p.drawText(QRectF(option.rect).adjusted(75, 55, -63, -135),
+        source_rect = QRectF(option.rect).adjusted(75, 55, -63, -135)
+        source = p.fontMetrics().elidedText(source, Qt.TextElideMode.ElideRight,
+                                          max(0, int(source_rect.width())))
+        p.drawText(source_rect,
                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, source)
         draw_menu_dots(p, self.menu_rect(option.rect, entry))
 
@@ -41,7 +44,7 @@ class WorkplaceDelegate(CatalogDelegate):
         p.setBrush(QColor("#c9b18c"))
         p.setPen(QPen(QColor("#c9b18c"), 1))
         p.drawRoundedRect(rect.adjusted(.5, .5, -.5, -.5), 5, 5)
-        p.setFont(sans(11))
+        p.setFont(sans(13))
         p.setPen(QColor("#20251c"))
         p.drawText(rect.adjusted(13, 0, -30, 0), Qt.AlignmentFlag.AlignVCenter,
                    "Open website" if entry.kind == "websites" else "Open application")
@@ -200,12 +203,12 @@ class WorkplaceListDelegate(CatalogDelegate):
         symbol.paint(p, int(rect.left() + 15), int(rect.top() + 20), 26, 26)
         width = max(1, int(rect.width() - 220))
         p.setPen(QColor("#eee8dc"))
-        p.setFont(sans(14))
+        p.setFont(sans(15))
         title = ("Pinned · " if entry.favorite else "") + entry.name
         p.drawText(QRectF(rect.left() + 55, rect.top() + 10, width, 24), Qt.AlignmentFlag.AlignVCenter,
                    p.fontMetrics().elidedText(title, Qt.TextElideMode.ElideRight, width))
-        p.setPen(QColor("#b2bca5" if entry.available else "#d4af81"))
-        p.setFont(sans(12))
+        p.setPen(QColor("#c5ceb9" if entry.available else "#d4af81"))
+        p.setFont(sans(14))
         p.drawText(QRectF(rect.left() + 55, rect.top() + 37, width, 23), Qt.AlignmentFlag.AlignVCenter,
                    p.fontMetrics().elidedText(entry.detail, Qt.TextElideMode.ElideRight, width))
         button = self.open_rect(option.rect, entry)

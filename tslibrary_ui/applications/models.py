@@ -17,7 +17,9 @@ class Application:
     icon: QIcon = field(default_factory=QIcon, repr=False, compare=False)
     id: str = field(default_factory=lambda: uuid4().hex)
     arguments: str = ""
+    target: dict | None = field(default=None, repr=False, compare=False)
 
     @property
     def launch_target(self) -> str:
-        return format_launch_target(self.executable, self.arguments)
+        reference = (self.target.get("hint") or self.target["filename"]) if self.target else self.executable
+        return format_launch_target(reference, self.arguments)

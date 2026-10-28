@@ -1,12 +1,13 @@
 """Read-only workplace projections; catalog records retain their stable IDs."""
 
 from dataclasses import dataclass
-from pathlib import Path, PureWindowsPath
+from pathlib import PureWindowsPath
 from dataclasses import replace
 
 from PySide6.QtGui import QIcon
 
 from ..library.models import KINDS
+from ..applications.resolver import resolve_application
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,7 @@ def entry_key(entry):
 def effective_application(record, config, *, source="catalog"):
     key = f"applications:{source}:{record.id}"
     path = config.application_overrides.get(key)
-    return replace(record, executable=path) if path else record
+    return replace(record, executable=path, target=None) if path else record
 
 
 def project(record, kind, *, source="catalog", added=False, config=None):
@@ -44,8 +45,8 @@ def project(record, kind, *, source="catalog", added=False, config=None):
     available = True
     if kind == "applications":
         try:
-            available = Path(record.executable).is_file()
-        except OSError:
+            resolve_application(record)
+        except (OSError, ValueError):
             available = False
         if not available:
             entry = replace(entry, detail=f"Unavailable on this PC · {detail}")

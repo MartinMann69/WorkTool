@@ -9,7 +9,15 @@ def _file_path(value: str) -> Path:
     """Validate a single file path without treating arguments as filenames."""
     if not value:
         raise ValueError("Choose an application (.exe) or Windows shortcut (.lnk) first.")
-    path = Path(os.path.expandvars(value)).expanduser()
+    expanded = os.path.expandvars(value)
+    if "%" in expanded:
+        from .resolver import expand_hint
+        expanded_path = expand_hint(expanded)
+        if expanded_path is None:
+            raise ValueError("That user folder is unavailable on this PC.")
+        path = expanded_path.expanduser()
+    else:
+        path = Path(expanded).expanduser()
     if path.suffix.casefold() not in (".exe", ".lnk"):
         raise ValueError("Choose a Windows executable (.exe) or shortcut (.lnk).")
     try:

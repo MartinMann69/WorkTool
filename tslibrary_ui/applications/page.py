@@ -51,6 +51,7 @@ class ApplicationsPage(CatalogPage):
             original.executable = updated.executable
             original.icon = updated.icon
             original.arguments = updated.arguments
+            original.target = updated.target
         self.entry_saved.emit(dialog, original if original is not None else updated)
         self.refresh()
         self.changed.emit()

@@ -27,7 +27,7 @@ class AdminDataTools:
 
     def restore_catalog(self):
         if self.documentation_page._busy():
-            QMessageBox.information(self, "Files are being copied", "Wait for the documentation file copy to finish before restoring the catalog.")
+            QMessageBox.information(self, "File operation in progress", "Wait for the documentation file operation to finish before restoring the catalog.")
             return
         path, _ = QFileDialog.getOpenFileName(self, "Restore catalog backup", "", "JSON (*.json)")
         if not path:
@@ -57,6 +57,7 @@ class AdminDataTools:
             self.session.documentation = loaded.documentation
             self.session.links[:] = loaded.links
             self.documentation_page.reload_settings()
+            self.settings_page.reload_settings()
             self.licenses_page.refresh_categories()
             for page in self.pages.values():
                 page.refresh()

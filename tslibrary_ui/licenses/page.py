@@ -26,7 +26,7 @@ class LicensesPage(CatalogPage):
     def __init__(self, items: list[LibraryItem], parent=None):
         self.items = items
         super().__init__(parent)
-        for column, width in [(2, 100), (3, 90), (4, 204)]:
+        for column, width in [(2, 100), (3, 90), (4, 232)]:
             self.table.horizontalHeader().setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
             self.table.setColumnWidth(column, width)
         self.table.cellDoubleClicked.connect(self._open_row)
@@ -82,13 +82,17 @@ class LicensesPage(CatalogPage):
             if item.has_unlimited:
                 used_cell.setToolTip("Usage is tracked for limited entries only. Unlimited keys have no used count.")
             self.table.setItem(row, 3, used_cell)
-            button = QPushButton("Manage licenses  →")
+            button = QPushButton("Manage licenses")
             button.setObjectName("emptyAction")
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.clicked.connect(lambda checked, entry=item: self.open_licenses(entry))
             delete = TrashButton(f"Delete item: {item.name}")
             delete.clicked.connect(lambda checked, entry=item: self.confirm_delete_item(entry))
             self.table.setCellWidget(row, 4, button_cell(button, delete))
+            button.ensurePolished()
+            minimum = button.sizeHint().width()
+            button.setMinimumWidth(minimum)
+            self.table.setColumnWidth(4, max(self.table.columnWidth(4), minimum + 34 + 24 + 24))
         self.content_stack.setCurrentWidget(self.table if visible else self.empty_state)
         self.empty_heading.setText("No matching items." if self.items else self.empty_title)
         self.empty_description.setText("Try another search or category." if self.items else

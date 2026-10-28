@@ -361,7 +361,7 @@ class RelationshipChecks(unittest.TestCase):
                     if ref.kind == "license":
                         admin.licenses_page.license_window.close()
                     if ref.kind == "documentation":
-                        admin.documentation_page.files_dialog.close()
+                        self.assertIsNone(admin.documentation_page.files_dialog)
 
     def test_documentation_failure_does_not_commit_draft_links(self):
         from tslibrary_ui.documentation.files import DocumentationError, DocumentationFiles
@@ -395,8 +395,13 @@ class RelationshipChecks(unittest.TestCase):
         page = admin.documentation_page
         self.app.processEvents()
         self.assertEqual((admin.width(), admin.height()), (1000, 680))
-        self.assertLess(page.location_edit.geometry().bottom(), page.root_name_edit.geometry().top())
-        self.assertLess(page.root_name_edit.geometry().bottom(), page.settings_message.geometry().top())
+        self.assertFalse(hasattr(page, "location_edit"))
+        admin.set_page("Settings")
+        settings = admin.settings_page
+        self.app.processEvents()
+        self.assertLess(settings.location_edit.geometry().bottom(), settings.root_name_edit.geometry().top())
+        self.assertLess(settings.root_name_edit.geometry().bottom(), settings.settings_message.geometry().top())
+        admin.set_page("Documentation")
         self.assertGreaterEqual(page.table.viewport().height(), page.table.rowHeight(0))
         for ref in (self.source, self.website, self.license, self.guide):
             dialog = self.open_editor(ref)

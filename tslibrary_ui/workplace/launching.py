@@ -5,7 +5,7 @@ import os
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QDesktopServices
 
-from ..applications.targets import parse_launch_target
+from ..applications.resolver import resolve_application
 from ..websites.urls import normalize_website_url
 
 
@@ -16,7 +16,7 @@ class ResourceLauncher:
             raise OSError("Your default browser could not open this website.")
 
     def open_application(self, application):
-        path, arguments = parse_launch_target(application.launch_target)
+        path, arguments = resolve_application(application), application.arguments
         if os.name != "nt":
             raise OSError("Desktop application launching requires Windows.")
         # ShellExecute opens .lnk files intact and preserves their own settings.

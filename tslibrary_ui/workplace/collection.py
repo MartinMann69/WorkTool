@@ -63,7 +63,7 @@ class CollectionDelegate(CatalogDelegate):
         p.drawLine(QPointF(x - 4, y), QPointF(x + 4, y))
         if not entry.added:
             p.drawLine(QPointF(x, y - 4), QPointF(x, y + 4))
-        p.setFont(sans(11))
+        p.setFont(sans(13))
         p.setPen(color)
         text = "Remove from workplace" if entry.added else "Add to workplace"
         text = p.fontMetrics().elidedText(text, Qt.TextElideMode.ElideRight, int(rect.width() - 43))
@@ -179,7 +179,7 @@ class CollectionListDelegate(CatalogDelegate):
         symbol = entry.icon if entry.icon is not None and not entry.icon.isNull() else self.fallback_icons[entry.kind]
         symbol.paint(p, int(rect.left() + 14), int(rect.top() + 20), 26, 26)
         width = max(1, int(rect.width() - 235))
-        for text, y, size, color in [(entry.name, 10, 14, "#eee8dc"), (entry.detail, 37, 12, "#b2bca5")]:
+        for text, y, size, color in [(entry.name, 10, 15, "#eee8dc"), (entry.detail, 37, 14, "#c5ceb9")]:
             p.setFont(sans(size))
             p.setPen(QColor(color))
             p.drawText(QRectF(rect.left() + 54, rect.top() + y, width, 24), Qt.AlignmentFlag.AlignVCenter,
@@ -188,7 +188,7 @@ class CollectionListDelegate(CatalogDelegate):
         p.setBrush(QColor("#35452c" if entry.added else "#2b3324"))
         p.setPen(QPen(QColor("#8a9b75" if entry.added else "#a18c66"), 1))
         p.drawRoundedRect(button, 5, 5)
-        p.setFont(sans(12))
+        p.setFont(sans(14))
         p.setPen(QColor("#e2d5b8"))
         p.drawText(button, Qt.AlignmentFlag.AlignCenter, "Remove" if entry.added else "Add to workplace")
         p.restore()

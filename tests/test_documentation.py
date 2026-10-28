@@ -188,37 +188,33 @@ class DocumentationChecks(unittest.TestCase):
         admin = self.controller(repo)
         admin.admin.set_page("Documentation")
         page = admin.admin.documentation_page
-        page.location_edit.setText(str(self.shared))
-        page.root_name_edit.setText("Company documentation")
-        page.save_location_button.click()
+        settings = admin.admin.settings_page
+        settings.location_edit.setText(str(self.shared))
+        settings.root_name_edit.setText("Company documentation")
+        settings.save_location_button.click()
         page.add_button.click()
         editor = page.item_dialog
         editor.name_edit.setText("IT/Setup")
         editor.save_button.click()
         self.app.processEvents()
-        files = page.files_dialog
-        self.assertIsNotNone(files)
-        files.import_files([self.source()])
-        deadline = time.monotonic() + 5
-        while files.busy and time.monotonic() < deadline:
+        self.assertEqual(page.selected_folder, "IT/Setup")
+        self.assertIsNone(page.files_dialog)
+        page.import_files([self.source()])
+        deadline = time.monotonic() + 8
+        while (page.busy or page.directory_loading) and time.monotonic() < deadline:
             QTest.qWait(10)
-        self.assertFalse(files.busy)
-        self.assertEqual(files.file_list.count(), 1)
-        files.reject()
+        self.assertFalse(page.busy)
+        self.assertFalse(page.directory_loading)
+        self.assertEqual(page.table.rowCount(), 1)
         user_repo = JsonRepository(repo.catalog_path, self.root / "user.json")
         user = self.controller(user_repo).main_window
         self.assertEqual([user.tabs.tabText(i) for i in range(user.tabs.count())],
                          ["Websites", "Applications", "Collection"])
         self.assertEqual(user.session.documentation.items[0].name, "IT/Setup")
-        page.open_item(admin.session.documentation.items[0])
-        dialog = page.files_dialog
-        self.assertTrue(dialog.editable)
-        self.assertEqual(dialog.file_list.count(), 1)
-        with patch("tslibrary_ui.documentation.dialogs.QDesktopServices.openUrl", return_value=True) as launch:
-            dialog.open_file()
+        with patch("tslibrary_ui.documentation.page.QDesktopServices.openUrl", return_value=True) as launch:
+            page._open_row(0, 0)
         self.assertEqual(Path(launch.call_args.args[0].toLocalFile()).read_bytes(), b"test guide")
         self.assertFalse(user_repo.config_path.exists())
-        dialog.reject()
         # Removing the published item keeps actual shared documents intact.
         folder = DocumentationFiles(admin.session.documentation).item_path("IT/Setup")
         page._remove(admin.session.documentation.items[0])

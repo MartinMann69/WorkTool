@@ -107,6 +107,41 @@ def admin_icon(kind, color="#a6ae96"):
         path.lineTo(13, 8)
         p.drawPath(path)
         p.drawLine(QPointF(7, 13), QPointF(13, 7))
+    elif kind == "more":
+        p.setBrush(QColor(color))
+        for x in (4, 10, 16):
+            p.drawEllipse(QPointF(x, 10), 1.1, 1.1)
+    elif kind == "folder":
+        path = QPainterPath(QPointF(2, 5))
+        path.lineTo(8, 5)
+        path.lineTo(10, 7)
+        path.lineTo(18, 7)
+        path.lineTo(18, 17)
+        path.lineTo(2, 17)
+        path.closeSubpath()
+        p.drawPath(path)
+        p.drawLine(QPointF(2, 9), QPointF(18, 9))
+    elif kind == "edit":
+        path = QPainterPath(QPointF(4, 13))
+        path.lineTo(13, 4)
+        path.lineTo(16, 7)
+        path.lineTo(7, 16)
+        path.lineTo(3, 17)
+        path.closeSubpath()
+        p.drawPath(path)
+        p.drawLine(QPointF(11, 6), QPointF(14, 9))
+    elif kind == "settings":
+        p.drawEllipse(QPointF(10, 10), 5.5, 5.5)
+        p.drawEllipse(QPointF(10, 10), 2, 2)
+        for start, end in ((QPointF(10, 2), QPointF(10, 4)),
+                           (QPointF(10, 16), QPointF(10, 18)),
+                           (QPointF(2, 10), QPointF(4, 10)),
+                           (QPointF(16, 10), QPointF(18, 10)),
+                           (QPointF(4, 4), QPointF(6, 6)),
+                           (QPointF(14, 14), QPointF(16, 16)),
+                           (QPointF(4, 16), QPointF(6, 14)),
+                           (QPointF(14, 6), QPointF(16, 4))):
+            p.drawLine(start, end)
     elif kind == "search":
         p.drawEllipse(QPointF(8.5, 8.5), 5, 5)
         p.drawLine(QPointF(12.5, 12.5), QPointF(17, 17))

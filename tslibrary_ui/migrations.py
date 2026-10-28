@@ -43,7 +43,14 @@ class DataSchema:
         return result
 
 
-# No format conversion is needed for this release. Add real steps here when a
-# future release changes a schema; app version bumps alone need no migration.
-CATALOG_SCHEMA = DataSchema("catalog", current_version=1, migrations={})
+def catalog_v1_to_v2(data):
+    """Keep IDs/arguments; replace admin-specific paths with portable targets."""
+    from .applications.portable import describe_target
+    for application in data.get("applications", []):
+        application["target"] = describe_target(application.pop("executable"))
+    data["version"] = 2
+    return data
+
+
+CATALOG_SCHEMA = DataSchema("catalog", current_version=2, migrations={1: catalog_v1_to_v2})
 WORKPLACE_SCHEMA = DataSchema("workplace", current_version=1, migrations={})

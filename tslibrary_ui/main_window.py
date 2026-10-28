@@ -116,10 +116,8 @@ class MainWindow(WorkplaceTools, QMainWindow):
             except StorageError as error:
                 QMessageBox.warning(self, "Could not refresh Collection", str(error))
                 return
-            self.session.applications[:] = loaded.applications
-            self.session.websites[:] = loaded.websites
-            self.session.documentation = loaded.documentation
-            self.session.links[:] = loaded.links
+            from .state import replace_catalog
+            replace_catalog(self.session, loaded)
         self.refresh()
 
     def _commit(self, config):
@@ -163,7 +161,7 @@ class MainWindow(WorkplaceTools, QMainWindow):
         if original is not None and kind == "applications":
             original = effective_application(original, self.config, source="personal")
         dialog = (WebsiteDialog(self, website=original) if kind == "websites"
-                  else ApplicationDialog(self, application=original))
+                  else ApplicationDialog(self, application=original, shared=False))
         noun = "website" if kind == "websites" else "application"
         dialog.setWindowTitle(f"TSLibrary — {'Edit' if original else 'Add'} personal {noun}")
         # Keep values available for retry if a save fails after validation.

@@ -7,29 +7,39 @@ from PySide6.QtWidgets import (
 )
 
 from ..shared.forms import action, caption
+from ..shared.controls import FilterCombo
 from .files import DocumentationError, DocumentationFiles
 from .models import item_name
 
 
 class DocumentationItemDialog(QDialog):
-    def __init__(self, parent=None, *, item=None):
+    def __init__(self, parent=None, *, item=None, folder="", folders=()):
         super().__init__(parent)
         self.setObjectName("inventoryDialog")
-        self.setWindowTitle("TSLibrary — " + ("Edit documentation" if item else "Add documentation"))
+        self.setWindowTitle("TSLibrary — " + ("Edit folder" if item else "New folder"))
         self.setMinimumWidth(460)
         self.resize(560, 320)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 26, 28, 26)
         layout.setSpacing(12)
         layout.addWidget(caption("DOCUMENTATION  /  ITEM DETAILS", "adminEyebrow"))
-        layout.addWidget(caption("Edit item" if item else "Add documentation", "dialogHeading"))
-        layout.addWidget(caption("The name creates its folder. Use / for subfolders, for example IT/Setup."))
-        label = caption("Item name / folder path", "fieldLabel")
+        layout.addWidget(caption("Edit folder" if item else "New folder", "dialogHeading"))
+        layout.addWidget(caption("Create a folder for your documents, then use Add files to put documents inside it."))
+        layout.addWidget(caption("Parent folder (optional)", "fieldLabel"))
+        self.folder_edit = FilterCombo()
+        self.folder_edit.setEditable(True)
+        self.folder_edit.setAccessibleName("Documentation parent folder")
+        self.folder_edit.addItems([""] + sorted(folders, key=str.casefold))
+        self.folder_edit.setMinimumHeight(42)
+        self.folder_edit.setCurrentText(item.name.rpartition("/")[0] if item else folder)
+        self.folder_edit.lineEdit().setPlaceholderText("e.g. Microsoft/Word")
+        layout.addWidget(self.folder_edit)
+        label = caption("Folder name", "fieldLabel")
         layout.addWidget(label)
-        self.name_edit = QLineEdit(item.name if item else "")
+        self.name_edit = QLineEdit(item.name.rpartition("/")[2] if item else "")
         self.name_edit.setObjectName("dialogInput")
         self.name_edit.setAccessibleName("Documentation item name")
-        self.name_edit.setPlaceholderText("e.g. IT/Setup")
+        self.name_edit.setPlaceholderText("e.g. Word")
         self.name_edit.setMaxLength(220)
         label.setBuddy(self.name_edit)
         layout.addWidget(self.name_edit)
@@ -48,7 +58,9 @@ class DocumentationItemDialog(QDialog):
 
     def _save(self):
         try:
-            self.name = item_name(self.name_edit.text())
+            name = self.name_edit.text().strip()
+            folder = self.folder_edit.currentText().strip().strip("/")
+            self.name = item_name(name if "/" in name or "\\" in name or not folder else folder + "/" + name)
         except ValueError as error:
             self.error.setText(str(error))
             return
@@ -128,7 +140,13 @@ class DocumentationFilesDialog(QDialog):
         self.file_list.clear()
         try:
             self.path_label.setText(str(self.files.item_path(self.item.name)))
-            self.file_list.addItems(self.files.list_files(self.item.name))
+            # Registered sub-documents own their attachments. Do not show their
+            # files again as attachments of a parent that also has its own files.
+            prefix = self.item.name + "/"
+            child_roots = [entry.name[len(prefix):].casefold() + "/"
+                           for entry in self.files.catalog.items if entry.name.casefold().startswith(prefix.casefold())]
+            self.file_list.addItems([relative for relative in self.files.list_files(self.item.name)
+                                     if not any(relative.casefold().startswith(child) for child in child_roots)])
         except (OSError, ValueError, DocumentationError) as error:
             self.message.setText(str(error))
             self.open_button.setEnabled(False)

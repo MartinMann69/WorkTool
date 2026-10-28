@@ -129,7 +129,8 @@ class SingleInstanceChecks(unittest.TestCase):
         with patch("tslibrary_ui.app.SingleInstance", return_value=first), \
              patch("tslibrary_ui.app.create_repository"), \
              patch("tslibrary_ui.app.PreviewController", side_effect=StorageError("fixture")), \
-             patch("tslibrary_ui.app.QMessageBox.critical"):
+             patch("tslibrary_ui.app.QMessageBox.exec"), \
+             patch("tslibrary_ui.app.QMessageBox.clickedButton", return_value=None):
             self.assertEqual(main(), 1)
         self.assertTrue(self.instance().start())
 

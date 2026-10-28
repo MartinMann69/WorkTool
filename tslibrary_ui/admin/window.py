@@ -20,6 +20,7 @@ from ..websites.page import WebsitesPage
 from .sidebar import AdminSidebar
 from .transfers import AdminDataTools
 from .relationships import RelatedEntriesEditor, row_links_button
+from .settings import SettingsPage
 
 
 class AdminWindow(AdminDataTools, QWidget):
@@ -45,6 +46,7 @@ class AdminWindow(AdminDataTools, QWidget):
         self.websites_page = WebsitesPage(self.session.websites)
         self.documentation_page = DocumentationPage(self.session)
         self.full_library_page = LibraryPage(session=self.session)
+        self.settings_page = SettingsPage(self.session)
         self.pages = {
             "Full library": self.full_library_page,
             "Licenses": self.licenses_page,
@@ -52,6 +54,7 @@ class AdminWindow(AdminDataTools, QWidget):
             "Phone apps": self.phone_apps_page,
             "Websites": self.websites_page,
             "Documentation": self.documentation_page,
+            "Settings": self.settings_page,
         }
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -73,13 +76,16 @@ class AdminWindow(AdminDataTools, QWidget):
             page.table.setColumnCount(page.links_column + 1)
             page.table.setHorizontalHeaderItem(page.links_column, QTableWidgetItem("LINKS"))
             page.table.horizontalHeader().setSectionResizeMode(page.links_column, QHeaderView.ResizeMode.Fixed)
-            page.table.setColumnWidth(page.links_column, 80)
+            page.table.setColumnWidth(page.links_column, 112)
             page.editing.connect(lambda dialog, entry, entry_kind=kind: self._prepare_editor(entry_kind, dialog, entry))
             page.entry_saved.connect(lambda dialog, entry, entry_kind=kind: self._save_editor_links(entry_kind, dialog, entry))
             page.refreshed.connect(lambda entry_kind=kind: self._refresh_row_links(entry_kind))
             page.changed.connect(self._catalog_edited)
             self._refresh_row_links(kind)
         self._inventory_sort_index = 0
+        self.settings_page.changed.connect(self._catalog_edited)
+        self.documentation_page.filesystem_changed.connect(self.refresh_related_entries)
+        self.documentation_page.filesystem_changed.connect(self.full_library_page.refresh)
         self.set_page(self.LICENSES_PAGE)
 
     def _catalog_edited(self):
@@ -111,7 +117,10 @@ class AdminWindow(AdminDataTools, QWidget):
             if previous is not None:
                 previous.hide()
                 table.removeCellWidget(row, column)
-            source = EntryRef(kind, table.item(row, 0).data(Qt.ItemDataRole.UserRole))
+            identifier = table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            if not isinstance(identifier, str):
+                continue  # An inferred documentation folder has no catalog record.
+            source = EntryRef(kind, identifier)
             button = row_links_button(self.session, source, self.navigate_to_entry, table)
             if button is not None:
                 table.setCellWidget(row, column, button_cell(button))
@@ -125,6 +134,8 @@ class AdminWindow(AdminDataTools, QWidget):
             return False
         page = self.pages[ENTRY_TYPES[ref.kind][1]]
         self.set_page(ENTRY_TYPES[ref.kind][1])
+        if hasattr(page, "reveal_entry"):
+            page.reveal_entry(ref.id)
         # Clear only filters that would hide the destination.
         def target_row():
             return next((row for row in range(page.table.rowCount())
@@ -155,9 +166,9 @@ class AdminWindow(AdminDataTools, QWidget):
         page = self.pages[name]
         # Inventory tabs share their name/recent sort. The combined library has
         # its own sort options, so keep that choice independent of these tabs.
-        if self.current_page is not self.full_library_page:
+        if hasattr(self.current_page, "sort_select") and self.current_page is not self.full_library_page:
             self._inventory_sort_index = self.current_page.sort_select.currentIndex()
-        if page is not self.full_library_page:
+        if hasattr(page, "sort_select") and page is not self.full_library_page:
             page.sort_select.setCurrentIndex(self._inventory_sort_index)
         self.sidebar.nav_buttons[name].setChecked(True)
         self.page_stack.setCurrentWidget(page)
@@ -173,3 +184,11 @@ class AdminWindow(AdminDataTools, QWidget):
             page.content_layout.setContentsMargins(margin, 30, margin, 23)
             if hasattr(page, "set_compact_header"):
                 page.set_compact_header(self.height() < 740)
+
+    def closeEvent(self, event):
+        if self.documentation_page._busy():
+            self.documentation_page._import_message = "A file operation is in progress. Please wait for it to finish."
+            self.documentation_page._update_file_message()
+            event.ignore()
+            return
+        super().closeEvent(event)

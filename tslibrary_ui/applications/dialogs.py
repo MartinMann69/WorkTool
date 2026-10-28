@@ -13,10 +13,11 @@ from ..shared.confirmation import ConfirmDeleteDialog
 from .targets import parse_launch_target, format_launch_target
 from .icons import executable_icon
 from .models import Application
+from .resolver import capture_target, resolve_application
 
 
 class ApplicationDialog(QDialog):
-    def __init__(self, parent=None, *, application=None):
+    def __init__(self, parent=None, *, application=None, shared=True):
         super().__init__(parent)
         self.setObjectName("inventoryDialog")
         self.setWindowTitle("TSLibrary — Edit application" if application else "TSLibrary — Add application")
@@ -26,6 +27,9 @@ class ApplicationDialog(QDialog):
         self._selected_path = None
         self._selected_icon = QIcon()
         self._selected_arguments = ""
+        self.shared = shared
+        self._original = application
+        self._original_text = application.launch_target if application else ""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 26, 28, 26)
         layout.setSpacing(10)
@@ -58,7 +62,8 @@ class ApplicationDialog(QDialog):
         self.browse_button.clicked.connect(self.browse)
         path_row.addWidget(self.browse_button)
         layout.addLayout(path_row)
-        layout.addWidget(caption('Optional arguments go after the path. Put paths with spaces in quotes.',
+        layout.addWidget(caption(('Shared apps are found on each PC. Shortcuts use the current user’s matching folder. ' if shared else '')
+                                 + 'Optional arguments go after the path. Put paths with spaces in quotes.',
                                  "adminMuted"))
         layout.addWidget(caption("Application name", "fieldLabel"))
         self.name_edit = QLineEdit(application.name if application else "")
@@ -93,7 +98,8 @@ class ApplicationDialog(QDialog):
             current_path, arguments = parse_launch_target(self.path_edit.text())
             start = str(current_path)
         except ValueError:
-            start, arguments = str(Path.home()), ""
+            start = str(Path.home())
+            arguments = self._original.arguments if self._original is not None and self.path_edit.text() == self._original_text else ""
         filename, _ = QFileDialog.getOpenFileName(
             self, "Choose an application or shortcut", start,
             "Applications and shortcuts (*.exe *.lnk);;Executables (*.exe);;Windows shortcuts (*.lnk)",
@@ -110,6 +116,18 @@ class ApplicationDialog(QDialog):
         self.name_edit.setFocus()
 
     def _update_preview(self):
+        if self._original is not None and self._original.target is not None and self.path_edit.text() == self._original_text:
+            try:
+                path = resolve_application(self._original)
+                self._selected_path = path
+                self._selected_icon = executable_icon(path)
+                self.icon_preview.setPixmap(self._selected_icon.pixmap(QSize(40, 40)))
+                self.icon_description.setText(f"Found on this PC: {path.name}")
+            except ValueError:
+                fallback = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+                self.icon_preview.setPixmap(fallback.pixmap(QSize(36, 36)))
+                self.icon_description.setText("Not found on this PC. You can still rename this shared entry; its portable reference is kept.")
+            return
         try:
             path, arguments = parse_launch_target(self.path_edit.text())
         except ValueError:
@@ -133,6 +151,11 @@ class ApplicationDialog(QDialog):
 
     def _save(self):
         self.preview_timer.stop()
+        if self._original is not None and self._original.target is not None and self.path_edit.text() == self._original_text:
+            # Renaming a shared record must work on a PC where it isn't installed.
+            self.error.clear()
+            self.accept()
+            return
         try:
             parse_launch_target(self.path_edit.text())
         except ValueError as error:
@@ -144,9 +167,13 @@ class ApplicationDialog(QDialog):
         self.accept()
 
     def application(self):
+        if self._original is not None and self._original.target is not None and self.path_edit.text() == self._original_text:
+            from dataclasses import replace
+            return replace(self._original, name=self.name_edit.text().strip() or self._original.name)
         return Application(self.name_edit.text().strip() or self._selected_path.stem,
                            str(self._selected_path), QIcon(self._selected_icon),
-                           arguments=self._selected_arguments)
+                           arguments=self._selected_arguments,
+                           target=capture_target(self._selected_path) if self.shared else None)
 
 
 class DeleteApplicationDialog(ConfirmDeleteDialog):

@@ -43,6 +43,92 @@ class DocumentationFiles:
             path.mkdir(parents=True, exist_ok=True)
         return path
 
+    def directory_path(self, name=""):
+        return self.item_path(name) if name else self.root()
+
+    def list_directory(self, name="", *, recursive=False):
+        """Read actual folders/files without following directory links."""
+        folder = self.directory_path(name)
+        if not folder.is_dir():
+            raise DocumentationError("This folder is unavailable. Connect the shared location and refresh.")
+        root = self.root()
+        pending, result = [folder], []
+        while pending:
+            current = pending.pop()
+            for path in current.iterdir():
+                if path.name.startswith(".tslibrary-"):
+                    continue
+                self._inside(path, root)
+                is_folder = path.is_dir()
+                if not is_folder and not path.is_file():
+                    continue
+                stat = path.stat()
+                result.append(dict(path=path.relative_to(root).as_posix(), folder=is_folder,
+                                   size=0 if is_folder else stat.st_size, modified=stat.st_mtime))
+                if recursive and is_folder and not path.is_symlink() and not getattr(path, "is_junction", lambda: False)():
+                    pending.append(path)
+        return result
+
+    def managed_path(self, name):
+        """A non-root item that can be moved/deleted without following links."""
+        name = item_name(name)
+        root = self.root()
+        path = root
+        for part in name.split("/"):
+            if part.startswith(".tslibrary-"):
+                raise DocumentationError("Temporary TSLibrary files cannot be managed here.")
+            path = path / part
+            if path.is_symlink() or getattr(path, "is_junction", lambda: False)():
+                raise DocumentationError("Move or delete the original item, rather than a linked folder.")
+        self._inside(path, root)
+        if not path.exists():
+            raise DocumentationError("This item is unavailable. Refresh the folder and try again.")
+        return path
+
+    def move(self, name, destination):
+        """Move within the root; update registered descendants without new IDs."""
+        name = item_name(name)
+        source = self.managed_path(name)
+        parent = self.managed_path(destination) if destination else self.root()
+        if not parent.is_dir():
+            raise DocumentationError("Choose an existing destination folder.")
+        if parent == source.parent:
+            raise DocumentationError("This item is already in that folder.")
+        if parent == source or parent.is_relative_to(source):
+            raise DocumentationError("A folder cannot be moved into itself or one of its subfolders.")
+        target = parent / source.name
+        relative = item_name(target.relative_to(self.root()).as_posix())
+        affected = [entry for entry in self.catalog.items
+                    if entry.name.casefold() == name.casefold() or entry.name.casefold().startswith(name.casefold() + "/")]
+        replacements = {entry.id: item_name(relative + entry.name[len(name):]) for entry in affected}
+        names = [replacements.get(entry.id, entry.name).casefold() for entry in self.catalog.items]
+        occupied = any(entry not in affected and (entry.name.casefold() == relative.casefold()
+                       or entry.name.casefold().startswith(relative.casefold() + "/")) for entry in self.catalog.items)
+        if occupied or len(names) != len(set(names)) or target.exists():
+            raise DocumentationError("An item with this name already exists in the destination. Nothing was replaced.")
+        source.rename(target)
+        for entry in affected:
+            entry.name = replacements[entry.id]
+        return source, target
+
+    def stage_delete(self, name):
+        """Keep deletion reversible until the catalog save has succeeded."""
+        name = item_name(name)
+        source = self.managed_path(name)
+        staged = source.with_name(f".tslibrary-{uuid4().hex}.deleted")
+        source.rename(staged)
+        self.catalog.items[:] = [entry for entry in self.catalog.items
+                                if entry.name.casefold() != name.casefold()
+                                and not entry.name.casefold().startswith(name.casefold() + "/")]
+        return source, staged
+
+    @staticmethod
+    def finish_delete(staged):
+        if staged.is_dir():
+            shutil.rmtree(staged)
+        else:
+            staged.unlink()
+
     def create_item(self, name):
         name = item_name(name)
         if any(item.name.casefold() == name.casefold() for item in self.catalog.items):
@@ -106,7 +192,7 @@ class DocumentationFiles:
         return sorted(files, key=str.casefold)
 
     def file_path(self, name, relative):
-        folder = self.item_path(name)
+        folder = self.directory_path(name)
         target = folder.joinpath(*item_name(relative).split("/"))
         self._inside(target, folder)
         if not target.is_file():
@@ -114,7 +200,7 @@ class DocumentationFiles:
         return target
 
     def add_files(self, name, sources):
-        folder = self.item_path(name)
+        folder = self.directory_path(name)
         if not folder.is_dir():
             raise DocumentationError("The item folder is unavailable; no files were copied.")
         sources = [Path(source) for source in sources]

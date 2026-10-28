@@ -32,3 +32,24 @@ class WorkplaceConfig:
     application_overrides: dict[str, str] = field(default_factory=dict)
     start_in_workplace: bool = False
     view_mode: str = "cards"
+
+
+def replace_catalog(session, loaded, *, keep_session_keys=True):
+    """Replace all inventories without breaking the lists owned by admin pages.
+
+    Keys remain local. Carry one across a refresh only when the item's complete
+    license metadata is unchanged, so it cannot attach to a different entry.
+    """
+    if keep_session_keys:
+        from .storage import catalog_data
+        previous = {item.id: item for item in session.items}
+        metadata = {item["id"]: item["licenses"] for item in catalog_data(session)["items"]}
+        incoming = {item["id"]: item["licenses"] for item in catalog_data(loaded)["items"]}
+        for item in loaded.items:
+            old = previous.get(item.id)
+            if old is not None and metadata[item.id] == incoming[item.id]:
+                for entry, before in zip(item.licenses, old.licenses):
+                    entry.key = before.key
+    for field in ("applications", "websites", "phone_apps", "items", "links"):
+        getattr(session, field)[:] = getattr(loaded, field)
+    session.documentation = loaded.documentation

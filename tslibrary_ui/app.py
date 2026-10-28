@@ -5,12 +5,13 @@ from pathlib import Path
 import sys
 
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 from .navigation import PreviewController
 from .single_instance import InstanceError, SingleInstance
 from .storage import StorageError, create_repository
 from .version import __version__
+from .window_state import create_window_settings
 
 
 def create_app() -> QApplication:
@@ -26,7 +27,9 @@ def create_app() -> QApplication:
         for filename in ("segoeui.ttf", "segoeuib.ttf", "georgia.ttf",
                          "georgiai.ttf", "yumin.ttf"):
             QFontDatabase.addApplicationFont(str(font_dir / filename))
-    app.setFont(QFont("Segoe UI", 10))
+    body_font = QFont("Segoe UI")
+    body_font.setPixelSize(14)
+    app.setFont(body_font)
     palette = app.palette()
     palette.setColor(QPalette.ColorRole.Window, QColor("#181b18"))
     palette.setColor(QPalette.ColorRole.WindowText, QColor("#e9e4d8"))
@@ -34,7 +37,7 @@ def create_app() -> QApplication:
     palette.setColor(QPalette.ColorRole.Text, QColor("#e9e4d8"))
     palette.setColor(QPalette.ColorRole.Button, QColor("#242920"))
     palette.setColor(QPalette.ColorRole.ButtonText, QColor("#e9e4d8"))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor("#909585"))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor("#b3bca7"))
     palette.setColor(QPalette.ColorRole.ToolTipBase, QColor("#242920"))
     palette.setColor(QPalette.ColorRole.ToolTipText, QColor("#e9e4d8"))
     palette.setColor(QPalette.ColorRole.Highlight, QColor("#c9b18c"))
@@ -69,11 +72,26 @@ def main() -> int:
         return 0
     app.aboutToQuit.connect(instance.close)
     try:
-        try:
-            controller = PreviewController(repository=create_repository())
-        except StorageError as error:
-            QMessageBox.critical(None, "Could not load TSLibrary", str(error))
-            return 1
+        while True:
+            try:
+                controller = PreviewController(repository=create_repository(), window_settings=create_window_settings())
+                break
+            except StorageError as error:
+                box = QMessageBox(QMessageBox.Icon.Warning, "Could not open TSLibrary", str(error))
+                choose = box.addButton("Choose team configuration…", QMessageBox.ButtonRole.ActionRole)
+                retry = box.addButton("Retry", QMessageBox.ButtonRole.AcceptRole)
+                box.addButton(QMessageBox.StandardButton.Cancel)
+                box.exec()
+                if box.clickedButton() is retry:
+                    continue
+                if box.clickedButton() is not choose:
+                    return 1
+                path, _ = QFileDialog.getOpenFileName(None, "Open shared team configuration", "", "TSLibrary team configuration (*.json)")
+                if path:
+                    try:
+                        create_repository(ignore_team=True).select_team(path)
+                    except StorageError as failure:
+                        QMessageBox.warning(None, "Could not open configuration", str(failure))
         instance.activation_requested.connect(controller.activate_current_window)
         if "--admin" in sys.argv:
             controller.show_admin()

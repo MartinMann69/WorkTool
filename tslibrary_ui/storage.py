@@ -17,6 +17,8 @@ from uuid import uuid4
 
 from .applications.icons import executable_icon
 from .applications.models import Application
+from .applications.portable import describe_target, validate_target
+from .applications.resolver import resolve_target
 from .state import LibrarySession, WorkplaceConfig
 from .websites.models import Website
 from .websites.urls import normalize_website_url
@@ -74,7 +76,19 @@ def _records(data, field):
     return records
 
 
-def _apps(data, field):
+def _apps(data, field, *, shared=False):
+    if shared:
+        apps = []
+        for item in _records(data, field):
+            target = validate_target(item.get("target"))
+            try:
+                local = resolve_target(target)
+            except ValueError:
+                local = target["hint"] or target["filename"]
+            apps.append(Application(name=_text(item, "name"), executable=target["hint"] or target["filename"],
+                                    id=_text(item, "id"), arguments=_text(item, "arguments", allow_empty=True),
+                                    target=target, icon=executable_icon(local)))
+        return apps
     return [Application(name=_text(item, "name"), executable=_text(item, "executable"),
                         id=_text(item, "id"), arguments=_text(item, "arguments", allow_empty=True),
                         icon=executable_icon(_text(item, "executable")))
@@ -94,7 +108,10 @@ def _ids(data, field):
     return list(dict.fromkeys(values))
 
 
-def _app_records(apps):
+def _app_records(apps, *, shared=False):
+    if shared:
+        return [dict(id=app.id, name=app.name, target=validate_target(app.target or describe_target(app.executable)),
+                     arguments=app.arguments) for app in apps]
     return [dict(id=app.id, name=app.name, executable=app.executable, arguments=app.arguments)
             for app in apps]
 
@@ -123,7 +140,7 @@ def _mapping(data, field, *, lists=False):
 
 def catalog_data(session):
     """Serializable inventory and renewal metadata; never serialize key values."""
-    return dict(version=CATALOG_SCHEMA.current_version, applications=_app_records(session.applications),
+    return dict(version=CATALOG_SCHEMA.current_version, applications=_app_records(session.applications, shared=True),
                 links=links_data(session),
                 documentation=documentation_data(session.documentation),
                 websites=_site_records(session.websites),
@@ -137,7 +154,7 @@ def catalog_data(session):
 
 def decode_catalog(data):
     data = CATALOG_SCHEMA.upgrade(data)
-    session = LibrarySession(applications=_apps(data, "applications"), websites=_sites(data, "websites"),
+    session = LibrarySession(applications=_apps(data, "applications", shared=True), websites=_sites(data, "websites"),
                              documentation=decode_documentation(data.get("documentation", {})),
                              phone_apps=[PhoneApp(_text(app, "name"), _text(app, "id"))
                                          for app in _records(data, "phone_apps")])
@@ -313,6 +330,36 @@ class ApplicationRepository:
                 raise StorageError("Catalog and personal config must use different files.")
         self.catalog_store = catalog_store
         self.workplace_store = workplace_store
+        self.team_config_path = None
+        self.connection_path = (workplace_store.path.with_name("team-connection.json")
+                                if isinstance(workplace_store, LocalWorkplaceStore) else None)
+
+    def select_team(self, path, *, remember=True):
+        from .team_config import SharedJsonCatalogStore, profile_catalog, remember_profile
+        profile = Path(path).expanduser().resolve()
+        catalog = profile_catalog(profile)
+        protected = [self.connection_path, getattr(self.workplace_store, "path", None)]
+        if any(value is not None and Path(value).resolve() in (profile, catalog) for value in protected):
+            raise StorageError("The shared configuration/catalog must be separate from this user's personal files.")
+        store = SharedJsonCatalogStore(catalog)
+        store.profile_path = profile
+        loaded = store.load_catalog()
+        if remember:
+            if self.connection_path is None:
+                raise StorageError("This repository has no local connection settings file.")
+            remember_profile(self.connection_path, profile)
+        # Commit the switch only after validation and the local selection save.
+        self.catalog_store, self.team_config_path = store, profile
+        return loaded
+
+    def create_team(self, path, session):
+        from .team_config import create_profile
+        profile = Path(path).expanduser().resolve()
+        catalog = profile.with_name(profile.stem + ".catalog.json")
+        for protected in (self.connection_path, getattr(self.workplace_store, "path", None)):
+            if protected is not None and Path(protected).resolve() in (profile, catalog):
+                raise StorageError("Choose a separate filename for the team configuration and catalog.")
+        return self.select_team(create_profile(path, session))
 
     def load_catalog(self) -> LibrarySession:
         return self.catalog_store.load_catalog()
@@ -344,7 +391,7 @@ def create_catalog_store(path: Path) -> CatalogStore:
     return JsonCatalogStore(path)
 
 
-def create_repository(*, catalog_store: CatalogStore | None = None) -> Repository:
+def create_repository(*, catalog_store: CatalogStore | None = None, ignore_team=False) -> Repository:
     """Keep personal data local even when injecting a different catalog backend.
 
     Existing default paths and version-1 JSON files are deliberately unchanged.
@@ -356,6 +403,12 @@ def create_repository(*, catalog_store: CatalogStore | None = None) -> Repositor
         else Path(__file__).resolve().parent.parent / "data" / "catalog.json")))
     user_root = Path(os.environ.get("APPDATA") or str(Path.home() / ".config"))
     config = Path(os.environ.get("TSLIBRARY_CONFIG_PATH", str(user_root / "TSLibrary" / "workplace.json")))
-    return ApplicationRepository(
+    repository = ApplicationRepository(
         catalog_store if catalog_store is not None else create_catalog_store(catalog),
         LocalWorkplaceStore(config))
+    if catalog_store is None and not ignore_team:
+        from .team_config import selected_profile
+        profile = selected_profile(repository.connection_path)
+        if profile is not None:
+            repository.select_team(profile, remember=False)
+    return repository

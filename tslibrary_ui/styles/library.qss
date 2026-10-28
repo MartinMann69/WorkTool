@@ -1,22 +1,22 @@
 QWidget#libraryWindow, QWidget#libraryPage { background: #181b18; }
 QWidget#libraryPage QLabel#libraryHeading { font-size: 39px; }
-QWidget#libraryPage QLabel#libraryStatLabel { font-size: 12px; }
-QLabel#libraryEyebrow { color: #9fa78d; font-size: 10px; letter-spacing: 1.8px; }
+QWidget#libraryPage QLabel#libraryStatLabel { font-size: 13px; }
+QLabel#libraryEyebrow { color: #bec8ad; font-size: 12px; letter-spacing: 0.8px; }
 QLabel#libraryHeading { color: #eee8dc; font-family: Georgia; font-size: 43px; }
-QLabel#libraryDescription { color: #a9b19c; font-size: 12px; }
+QLabel#libraryDescription { color: #c2cbb6; font-size: 14px; }
 QFrame#libraryStat { background: #1d241b; border: 1px solid #35402e; border-radius: 8px; }
 QLabel#libraryStatNumber { color: #e1d3b8; font-family: Georgia; font-size: 25px; }
-QLabel#libraryStatLabel { color: #a6b093; font-size: 12px; }
-QPushButton#libraryBack { background: transparent; color: #b9bea8; border: 1px solid #3c4633; border-radius: 6px; padding: 0 14px; font-size: 12px; }
+QLabel#libraryStatLabel { color: #c1ccb0; font-size: 13px; }
+QPushButton#libraryBack { background: transparent; color: #b9bea8; border: 1px solid #3c4633; border-radius: 6px; padding: 0 14px; font-size: 14px; }
 QPushButton#libraryBack:hover, QPushButton#libraryBack:focus { background: #283121; border-color: #b39e77; }
 QFrame#librarySearch { background: #20261d; border: 1px solid #414b35; border-radius: 7px; }
-QComboBox { color: #d2d4c0; background: #20261d; border: 1px solid #414b35; border-radius: 7px; padding-left: 13px; font-size: 12px; }
+QComboBox { color: #d2d4c0; background: #20261d; border: 1px solid #414b35; border-radius: 7px; padding-left: 13px; font-size: 14px; }
 QComboBox:hover, QComboBox:focus { border-color: #b39e77; }
 QComboBox::drop-down { border: none; width: 27px; }
 QComboBox::down-arrow { width: 0; height: 0; }
 QComboBox QAbstractItemView { color: #e9e4d5; background: #242d20; border: 1px solid #4f5b40; selection-background-color: #424d34; outline: none; padding: 5px; }
-QLabel#libraryMuted { color: #a1ab92; font-size: 12px; }
-QPushButton#libraryClear { border: none; background: transparent; color: #c5b28d; font-size: 12px; padding: 4px; }
+QLabel#libraryMuted { color: #bfcaaf; font-size: 13px; }
+QPushButton#libraryClear { border: none; background: transparent; color: #c5b28d; font-size: 14px; padding: 4px; }
 QPushButton#libraryClear:hover, QPushButton#libraryClear:focus { color: #eee0c6; text-decoration: underline; }
 QPushButton#libraryClear:disabled { color: #646f59; }
 QListView#libraryGrid { background: transparent; border: none; outline: none; }
