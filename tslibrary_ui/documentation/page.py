@@ -14,6 +14,7 @@ from ..graphics.icons import admin_icon
 from ..shared.catalog_page import CatalogPage
 from ..shared.confirmation import ConfirmDeleteDialog
 from ..shared.forms import action, caption
+from ..shared.explorer import explorer_button, show_in_explorer
 from ..shared.tables import button_cell, cell, preserve_selection
 from ..storage import StorageError
 from ..relationships import valid_links
@@ -439,14 +440,15 @@ class DocumentationPage(CatalogPage):
         self._files_finished()
 
     def open_in_explorer(self):
+        self.open_path_in_explorer(self.selected_folder, folder=True)
+
+    def open_path_in_explorer(self, path, *, folder):
         if self.busy:
             return
         try:
-            target = DocumentationFiles(self.catalog).directory_path(self.selected_folder)
-            if not target.is_dir():
-                raise DocumentationError("This folder is unavailable. Connect the shared location and try again.")
-            if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
-                raise DocumentationError("Windows File Explorer could not open this folder.")
+            files = DocumentationFiles(self.catalog)
+            target = files.directory_path(path) if folder else files.file_path("", path)
+            show_in_explorer(target)
         except (OSError, ValueError, DocumentationError) as error:
             self._import_message = str(error)
             self._update_file_message()
@@ -569,13 +571,16 @@ class DocumentationPage(CatalogPage):
             name.setToolTip(f"{self.catalog.root_name}/{result.path}")
             name.setIcon(admin_icon("folder", "#c9b18c") if result.folder else admin_icon("documentation"))
             self.table.setItem(row, 0, name)
-            files = action("Open folder" if result.folder else "Open")
+            files = action("Open")
+            files.setToolTip("Open folder in TSLibrary" if result.folder else "Open file")
             if result.folder:
                 files.setMaximumWidth(120)
                 files.clicked.connect(lambda checked=False, path=result.path: self.navigate_folder(path))
             else:
                 files.clicked.connect(lambda checked=False, path=result.path: self.open_file(path))
-            buttons = [files]
+            explorer = explorer_button(result.path, lambda checked=False, path=result.path, folder=result.folder:
+                                       self.open_path_in_explorer(path, folder=folder))
+            buttons = [files, explorer]
             if self.editable:
                 connect = action("")
                 connect.setIcon(admin_icon("links"))

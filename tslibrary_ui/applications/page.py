@@ -1,13 +1,15 @@
 """Applications tab: row rendering, search, and add/edit/delete behavior."""
 
 from PySide6.QtCore import Qt, QSize, Signal
-from PySide6.QtWidgets import QPushButton, QHeaderView
+from PySide6.QtWidgets import QPushButton, QHeaderView, QMessageBox
 
 from ..shared.catalog_page import CatalogPage
 from ..shared.controls import TrashButton
 from ..shared.tables import button_cell, cell, preserve_selection
+from ..shared.explorer import explorer_button, show_in_explorer
 from .models import Application
 from .dialogs import ApplicationDialog, DeleteApplicationDialog
+from .resolver import resolve_application
 
 
 class ApplicationsPage(CatalogPage):
@@ -29,7 +31,7 @@ class ApplicationsPage(CatalogPage):
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         self.table.setColumnWidth(0, 220)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-        self.table.setColumnWidth(2, 142)
+        self.table.setColumnWidth(2, 190)
         self.table.cellDoubleClicked.connect(self._edit_application_row)
         self.add_requested.connect(self.add_application)
         self.refresh()
@@ -56,6 +58,12 @@ class ApplicationsPage(CatalogPage):
         self.refresh()
         self.changed.emit()
 
+    def open_in_explorer(self, application):
+        try:
+            show_in_explorer(resolve_application(application))
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, "Could not open in Explorer", str(error))
+
     @preserve_selection
     def refresh(self, *_):
         query = self.search.text().strip().casefold()
@@ -79,7 +87,8 @@ class ApplicationsPage(CatalogPage):
             edit.clicked.connect(lambda checked, current=entry: self.add_application(current))
             remove = TrashButton(f"Remove application: {entry.name}")
             remove.clicked.connect(lambda checked, current=entry: self.confirm_remove_application(current))
-            self.table.setCellWidget(row, 2, button_cell(edit, remove))
+            explorer = explorer_button(entry.name, lambda checked=False, current=entry: self.open_in_explorer(current))
+            self.table.setCellWidget(row, 2, button_cell(edit, explorer, remove))
         self.content_stack.setCurrentWidget(self.table if visible else self.empty_state)
         self.empty_heading.setText("No matching applications." if self.applications else self.empty_title)
         self.empty_description.setText("Try another name or application path." if self.applications else

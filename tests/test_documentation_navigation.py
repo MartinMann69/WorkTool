@@ -104,7 +104,7 @@ class DocumentationNavigationChecks(unittest.TestCase):
         page = self.admin.documentation_page
         page.folder_tree.select_path("Microsoft/Word")
         self.app.processEvents()
-        files = next(button for button in page.table.findChildren(QPushButton) if button.text() == "Open folder")
+        files = next(button for button in page.table.findChildren(QPushButton) if button.text() == "Open")
         self.assertGreaterEqual(files.width(), files.fontMetrics().horizontalAdvance(files.text()) + 16)
         self.assertEqual(page.table.horizontalScrollBar().maximum(), 0)
 

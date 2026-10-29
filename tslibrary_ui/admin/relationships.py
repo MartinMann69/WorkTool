@@ -41,7 +41,6 @@ class RelatedEntriesDialog(QDialog):
     def __init__(self, session, source, parent=None, *, selected=None, name=None, pending=()):
         super().__init__(parent)
         self.source = source
-        self.original_group = {source, *related_entries(session, source)}
         self.session = session
         self._selected = set(related_entries(session, source) if selected is None else selected)
         self.pending_documentation = {entry.id: entry for entry in pending}
@@ -60,7 +59,7 @@ class RelatedEntriesDialog(QDialog):
         layout.setSpacing(14)
         layout.addWidget(caption("CONNECT YOUR LIBRARY", "adminEyebrow"))
         layout.addWidget(caption(name, "dialogHeading"))
-        layout.addWidget(caption("Connected entries form one group: each member can reach all the others. Uncheck an entry to separate it from this group."))
+        layout.addWidget(caption("Choose the entries linked directly to this item. Each connection works both ways."))
         filters = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setObjectName("dialogInput")
@@ -160,10 +159,6 @@ class RelatedEntriesDialog(QDialog):
             self._selected.add(ref)
         else:
             self._selected.discard(ref)
-        if checked and ref not in self.original_group:
-            # Show the whole group being joined, including entries hidden by a
-            # search/type filter. Further unchecking can split off any member.
-            self._selected.update(set(related_entries(self.session, ref)) - {self.source})
         with QSignalBlocker(self.entries_list):
             for index in range(self.entries_list.count()):
                 candidate = self.entries_list.item(index)

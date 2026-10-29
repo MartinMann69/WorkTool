@@ -60,5 +60,16 @@ def catalog_v2_to_v3(data):
     return data
 
 
-CATALOG_SCHEMA = DataSchema("catalog", current_version=3, migrations={1: catalog_v1_to_v2, 2: catalog_v2_to_v3})
+def catalog_v3_to_v4(data):
+    """Keep saved edges; older group-expanding writers must reject this format.
+
+    Earlier writers did not record which links were selected or inferred, so
+    deleting saved links automatically could remove intentional connections.
+    """
+    data["version"] = 4
+    return data
+
+
+CATALOG_SCHEMA = DataSchema("catalog", current_version=4,
+                          migrations={1: catalog_v1_to_v2, 2: catalog_v2_to_v3, 3: catalog_v3_to_v4})
 WORKPLACE_SCHEMA = DataSchema("workplace", current_version=1, migrations={})

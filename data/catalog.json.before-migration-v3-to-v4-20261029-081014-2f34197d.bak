@@ -1,0 +1,261 @@
+{
+  "version": 3,
+  "applications": [
+    {
+      "id": "cebfe1e1e9d7422a8e08b524da0978ab",
+      "name": "Anki",
+      "target": {
+        "kind": "shortcut",
+        "filename": "Anki.lnk",
+        "hint": "%DESKTOP%\\Anki.lnk"
+      },
+      "arguments": ""
+    },
+    {
+      "id": "1b3d8d9876ec49e3a3a4b2a7dffe0d00",
+      "name": "LM Studio",
+      "target": {
+        "kind": "shortcut",
+        "filename": "LM Studio.lnk",
+        "hint": "%DESKTOP%\\LM Studio.lnk"
+      },
+      "arguments": ""
+    }
+  ],
+  "links": [
+    {
+      "first": {
+        "kind": "application",
+        "id": "1b3d8d9876ec49e3a3a4b2a7dffe0d00"
+      },
+      "second": {
+        "kind": "license",
+        "id": "a538c1cae5104abaa803c5ff926abe24"
+      }
+    },
+    {
+      "first": {
+        "kind": "application",
+        "id": "1b3d8d9876ec49e3a3a4b2a7dffe0d00"
+      },
+      "second": {
+        "kind": "phone_app",
+        "id": "5343703f4be24f16a9b595c07740cdff"
+      }
+    },
+    {
+      "first": {
+        "kind": "application",
+        "id": "1b3d8d9876ec49e3a3a4b2a7dffe0d00"
+      },
+      "second": {
+        "kind": "website",
+        "id": "44d5964fe5844dcc8a98673a6f920885"
+      }
+    },
+    {
+      "first": {
+        "kind": "application",
+        "id": "cebfe1e1e9d7422a8e08b524da0978ab"
+      },
+      "second": {
+        "kind": "documentation",
+        "id": "e62ae59b17024c6fbe22a29e7dca27c9"
+      }
+    },
+    {
+      "first": {
+        "kind": "application",
+        "id": "cebfe1e1e9d7422a8e08b524da0978ab"
+      },
+      "second": {
+        "kind": "license",
+        "id": "87fc9a79460a426eb752da34eba8469f"
+      }
+    },
+    {
+      "first": {
+        "kind": "application",
+        "id": "cebfe1e1e9d7422a8e08b524da0978ab"
+      },
+      "second": {
+        "kind": "phone_app",
+        "id": "a64f10d9724d4b01bfa4dca4c6bcc213"
+      }
+    },
+    {
+      "first": {
+        "kind": "application",
+        "id": "cebfe1e1e9d7422a8e08b524da0978ab"
+      },
+      "second": {
+        "kind": "website",
+        "id": "b04200adfe7c4a109073110ef9ae7c20"
+      }
+    },
+    {
+      "first": {
+        "kind": "documentation",
+        "id": "e62ae59b17024c6fbe22a29e7dca27c9"
+      },
+      "second": {
+        "kind": "license",
+        "id": "87fc9a79460a426eb752da34eba8469f"
+      }
+    },
+    {
+      "first": {
+        "kind": "documentation",
+        "id": "e62ae59b17024c6fbe22a29e7dca27c9"
+      },
+      "second": {
+        "kind": "phone_app",
+        "id": "a64f10d9724d4b01bfa4dca4c6bcc213"
+      }
+    },
+    {
+      "first": {
+        "kind": "documentation",
+        "id": "e62ae59b17024c6fbe22a29e7dca27c9"
+      },
+      "second": {
+        "kind": "website",
+        "id": "b04200adfe7c4a109073110ef9ae7c20"
+      }
+    },
+    {
+      "first": {
+        "kind": "license",
+        "id": "87fc9a79460a426eb752da34eba8469f"
+      },
+      "second": {
+        "kind": "phone_app",
+        "id": "a64f10d9724d4b01bfa4dca4c6bcc213"
+      }
+    },
+    {
+      "first": {
+        "kind": "license",
+        "id": "87fc9a79460a426eb752da34eba8469f"
+      },
+      "second": {
+        "kind": "website",
+        "id": "b04200adfe7c4a109073110ef9ae7c20"
+      }
+    },
+    {
+      "first": {
+        "kind": "license",
+        "id": "a538c1cae5104abaa803c5ff926abe24"
+      },
+      "second": {
+        "kind": "phone_app",
+        "id": "5343703f4be24f16a9b595c07740cdff"
+      }
+    },
+    {
+      "first": {
+        "kind": "license",
+        "id": "a538c1cae5104abaa803c5ff926abe24"
+      },
+      "second": {
+        "kind": "website",
+        "id": "44d5964fe5844dcc8a98673a6f920885"
+      }
+    },
+    {
+      "first": {
+        "kind": "phone_app",
+        "id": "5343703f4be24f16a9b595c07740cdff"
+      },
+      "second": {
+        "kind": "website",
+        "id": "44d5964fe5844dcc8a98673a6f920885"
+      }
+    },
+    {
+      "first": {
+        "kind": "phone_app",
+        "id": "a64f10d9724d4b01bfa4dca4c6bcc213"
+      },
+      "second": {
+        "kind": "website",
+        "id": "b04200adfe7c4a109073110ef9ae7c20"
+      }
+    }
+  ],
+  "documentation": {
+    "parent_path": "C:/Users/marti/Downloads",
+    "root_name": "TSLibrary Documentation",
+    "items": [
+      {
+        "id": "e62ae59b17024c6fbe22a29e7dca27c9",
+        "name": "test",
+        "kind": "folder"
+      }
+    ]
+  },
+  "websites": [
+    {
+      "id": "b04200adfe7c4a109073110ef9ae7c20",
+      "name": "anki",
+      "url": "https://anki"
+    },
+    {
+      "id": "44d5964fe5844dcc8a98673a6f920885",
+      "name": "weafwf",
+      "url": "https://weafwf"
+    }
+  ],
+  "phone_apps": [
+    {
+      "id": "a64f10d9724d4b01bfa4dca4c6bcc213",
+      "name": "anki"
+    },
+    {
+      "id": "5343703f4be24f16a9b595c07740cdff",
+      "name": "kukhguk"
+    }
+  ],
+  "items": [
+    {
+      "id": "87fc9a79460a426eb752da34eba8469f",
+      "name": "anki",
+      "category": "Uncategorised",
+      "owner": "",
+      "renewal_date": "",
+      "licenses": [
+        {
+          "label": "lol",
+          "available": 1,
+          "used": 0,
+          "unlimited": false,
+          "keyed": false
+        }
+      ]
+    },
+    {
+      "id": "a538c1cae5104abaa803c5ff926abe24",
+      "name": "mic",
+      "category": "mic2",
+      "owner": "",
+      "renewal_date": "",
+      "licenses": [
+        {
+          "label": "fish",
+          "available": 1,
+          "used": 0,
+          "unlimited": true,
+          "keyed": true
+        },
+        {
+          "label": "hhfj",
+          "available": 6,
+          "used": 4,
+          "unlimited": false,
+          "keyed": false
+        }
+      ]
+    }
+  ]
+}

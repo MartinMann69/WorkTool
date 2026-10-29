@@ -14,6 +14,8 @@ from tslibrary_ui.migrations import DataSchema
 from tslibrary_ui.state import LibrarySession, WorkplaceConfig
 from tslibrary_ui.storage import JsonFile, JsonRepository, StorageError
 from tslibrary_ui.transfers import import_backup
+from tslibrary_ui.relationships import EntryRef, related_entries, replace_links
+from tslibrary_ui.team_config import SharedJsonCatalogStore
 
 
 # Snapshot of the shipping v1 workplace shape, deliberately independent of its
@@ -29,6 +31,19 @@ LEGACY_WORKPLACE = {
     "launch_sets": {"Morning": ["applications:personal:local-app"]},
     "application_overrides": {"applications:catalog:editor": "D:\\Tools\\editor.exe"},
     "view_mode": "list", "start_in_workplace": True,
+}
+
+
+LEGACY_PHONE_CATALOG = {
+    "version": 3,
+    "phone_apps": [{"id": "outlook", "name": "Outlook"}, {"id": "contacts", "name": "Contacts"}],
+    "documentation": {"parent_path": "D:/Team", "root_name": "Guides",
+                      "items": [{"id": "phones", "name": "Phones/Setup.pdf", "kind": "file"}]},
+    "links": [
+        {"first": {"kind": "phone_app", "id": "outlook"}, "second": {"kind": "documentation", "id": "phones"}},
+        {"first": {"kind": "phone_app", "id": "contacts"}, "second": {"kind": "documentation", "id": "phones"}},
+        {"first": {"kind": "phone_app", "id": "contacts"}, "second": {"kind": "phone_app", "id": "outlook"}},
+    ],
 }
 
 
@@ -186,6 +201,45 @@ class MigrationChecks(unittest.TestCase):
             self.path.write_text(json.dumps({"version": version}), encoding="utf-8")
             with self.subTest(version=version), self.assertRaises(StorageError):
                 JsonFile._read(self.path, lambda data: data, schema=FUTURE_SCHEMA)
+
+    def test_direct_connection_upgrade_preserves_saved_edges_then_cleanup_stays_removed(self):
+        raw = ("\ufeff" + json.dumps(LEGACY_PHONE_CATALOG, ensure_ascii=False)).encode("utf-8")
+        contacts, outlook, phones = EntryRef("phone_app", "contacts"), EntryRef("phone_app", "outlook"), EntryRef("documentation", "phones")
+        for shared in (False, True):
+            with self.subTest(shared=shared):
+                path = self.root / ("shared.json" if shared else "catalog.json")
+                path.write_bytes(raw)
+                store = SharedJsonCatalogStore(path) if shared else JsonRepository(path, self.path)
+                session = store.load_catalog()
+                self.assertEqual(json.loads(path.read_text()), dict(LEGACY_PHONE_CATALOG, version=4))
+                self.assertEqual(len(session.links), 3)  # No guessing which saved link was inferred.
+                self.assertEqual(session.documentation.items[0].kind, "file")
+                backups = list(self.root.glob(path.name + ".before-migration-*.bak"))
+                self.assertEqual(len(backups), 1)
+                self.assertEqual(backups[0].read_bytes(), raw)
+                with self.assertRaisesRegex(ValueError, "newer data version"):
+                    DataSchema("old group writer", 3, {}).upgrade(json.loads(path.read_text()))
+                replace_links(session, contacts, {phones})
+                store.save_catalog(session)
+                reloaded = store.load_catalog()
+                self.assertEqual(related_entries(reloaded, contacts), [phones])
+                self.assertEqual(related_entries(reloaded, outlook), [phones])
+                self.assertEqual(set(related_entries(reloaded, phones)), {contacts, outlook})
+                self.assertEqual(len(list(self.root.glob(path.name + ".before-migration-*.bak"))), 1)
+
+    def test_direct_connection_upgrade_cannot_proceed_without_a_backup(self):
+        raw = json.dumps(LEGACY_PHONE_CATALOG).encode("utf-8")
+        path = self.root / "catalog.json"
+        path.write_bytes(raw)
+        original_open = Path.open
+        def protected_open(path, *args, **kwargs):
+            if path.suffix == ".bak":
+                raise PermissionError("Backup is not writable")
+            return original_open(path, *args, **kwargs)
+        with patch.object(Path, "open", protected_open), self.assertRaises(StorageError):
+            JsonRepository(path, self.path).load_catalog()
+        self.assertEqual(path.read_bytes(), raw)
+        self.assertEqual(self.backups(), [])
 
 
 if __name__ == "__main__":

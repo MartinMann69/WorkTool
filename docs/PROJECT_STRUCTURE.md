@@ -80,6 +80,7 @@ tslibrary_ui/
         catalog_page.py         Common admin header, toolbar, empty state, table
         controls.py             Trash button, filter combo, spinbox, checkbox
         forms.py                Label and button factories
+        explorer.py             Shared Explorer row button and file/folder reveal action
         tables.py               Table configuration and cell helpers
         confirmation.py         Common confirmation-dialog layout
     graphics/

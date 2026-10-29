@@ -176,7 +176,7 @@ class DocumentationConnectionChecks(unittest.TestCase):
         new_folder.related_editor.picker.reject()
         new_folder.reject()
 
-    def test_hidden_group_members_remain_selected_across_tabs_and_search(self):
+    def test_only_explicit_checks_remain_selected_across_tabs_and_search(self):
         item = DocumentationItem("Microsoft/Word/Guide.pdf", "guide", "file")
         self.session.documentation.items.append(item)
         doc_ref = EntryRef("documentation", item.id)
@@ -184,6 +184,8 @@ class DocumentationConnectionChecks(unittest.TestCase):
         owner, picker, docs = self.picker()
         picker.tabs.setCurrentIndex(0)
         picker.set_ref_checked(self.license_ref, True)
+        self.assertEqual(picker.selected_refs(), {self.license_ref})
+        picker.set_ref_checked(doc_ref, True)
         self.assertEqual(picker.selected_refs(), {self.license_ref, doc_ref})
         picker.tabs.setCurrentIndex(1)
         picker.search.setText("does not exist")
@@ -195,7 +197,7 @@ class DocumentationConnectionChecks(unittest.TestCase):
         picker.accept()
         owner.save_button.click()
         self.assertEqual(related_entries(self.session, self.app_ref), [self.license_ref])
-        self.assertFalse(related_entries(self.session, doc_ref))
+        self.assertEqual(related_entries(self.session, doc_ref), [self.license_ref])
 
     def test_file_move_delete_updates_connections_without_treating_file_as_folder(self):
         item = DocumentationItem("Microsoft/Word/Guide.pdf", "guide", "file")
@@ -236,7 +238,7 @@ class DocumentationConnectionChecks(unittest.TestCase):
             session = store.load_catalog()
             self.assertEqual(session.documentation.items[0], DocumentationItem("Microsoft/Word", "old-folder", "folder"))
             self.assertEqual(related_entries(session, self.app_ref), [EntryRef("documentation", "old-folder")])
-            self.assertEqual(json.loads(path.read_text())["version"], 3)
+            self.assertEqual(json.loads(path.read_text())["version"], 4)
             backups = list(self.parent.glob(path.name + ".before-migration-*.bak"))
             self.assertEqual(len(backups), 1)
             self.assertEqual(backups[0].read_bytes(), raw)

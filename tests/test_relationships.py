@@ -73,7 +73,7 @@ class RelationshipChecks(unittest.TestCase):
         self.assertNotIn("SECRET", str(payload))
         loaded = decode_catalog(payload)
         self.assertEqual(set(related_entries(loaded, self.source)), {self.website, self.license, self.guide})
-        self.assertEqual(set(related_entries(loaded, self.website)), {self.source, self.license, self.guide})
+        self.assertEqual(set(related_entries(loaded, self.website)), {self.source})
         replace_links(loaded, self.website, [])
         self.assertEqual(set(related_entries(loaded, self.source)), {self.license, self.guide})
         self.assertEqual(related_entries(loaded, EntryRef("phone_app", "phone")), [])
@@ -132,8 +132,6 @@ class RelationshipChecks(unittest.TestCase):
             row = picker.entries_list.item(index)
             if row.data(Qt.ItemDataRole.UserRole) in refs:
                 row.setCheckState(Qt.CheckState.Checked)
-        # A newly selected member includes its existing group. Uncheck excluded
-        # members afterwards, as an admin would when deliberately splitting it.
         for index in range(picker.entries_list.count()):
             row = picker.entries_list.item(index)
             if row.data(Qt.ItemDataRole.UserRole) not in refs:
@@ -146,70 +144,67 @@ class RelationshipChecks(unittest.TestCase):
                 picker.set_ref_checked(ref, False)
         return picker
 
-    def assert_group(self, session, refs):
-        refs = set(refs)
-        for ref in refs:
-            with self.subTest(member=ref):
-                self.assertEqual(set(related_entries(session, ref)), refs - {ref})
-
-    def legacy_anki_group(self):
+    def star_links(self):
         refs = {self.source, self.website, self.license, self.guide, EntryRef("phone_app", "phone")}
         self.session.links[:] = [link_between(self.source, target) for target in refs - {self.source}]
         return refs
 
-    def test_existing_anki_star_links_become_a_group_in_every_admin_tab(self):
-        refs = self.legacy_anki_group()
+    def test_existing_star_links_stay_direct_in_every_admin_tab(self):
+        refs = self.star_links()
         self.window()
-        self.assert_group(self.session, refs)
         for ref in refs:
             button = self.row_button(ref)
-            self.assertEqual(button.text(), "4")
-            self.assertEqual(set(button.target_refs), refs - {ref})
+            expected = refs - {self.source} if ref == self.source else {self.source}
+            self.assertEqual(button.text(), str(len(expected)))
+            self.assertEqual(set(button.target_refs), expected)
         dialog = self.open_editor(self.website)
-        self.assertEqual(dialog.related_editor.selected_refs, refs - {self.website})
+        self.assertEqual(dialog.related_editor.selected_refs, {self.source})
 
-    def test_legacy_catalog_backup_roundtrip_preserves_whole_group(self):
-        refs = self.legacy_anki_group()
+    def test_legacy_catalog_backup_roundtrip_preserves_only_saved_edges(self):
+        refs = self.star_links()
         payload = catalog_data(self.session)
         payload["links"] = [dict(first=dict(kind=link.first.kind, id=link.first.id),
                                  second=dict(kind=link.second.kind, id=link.second.id))
                             for link in self.session.links]
         loaded = decode_catalog(payload)
-        self.assertEqual(len(loaded.links), 10)
-        self.assert_group(loaded, refs)
-        self.assert_group(decode_catalog(catalog_data(loaded)), refs)
+        self.assertEqual(len(loaded.links), 4)
+        self.assertEqual(loaded.links, sorted(self.session.links))
+        self.assertEqual(decode_catalog(catalog_data(loaded)).links, loaded.links)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "group.json"
             export_backup(path, loaded, catalog=True)
-            self.assert_group(import_backup(path, catalog=True), refs)
+            self.assertEqual(import_backup(path, catalog=True).links, loaded.links)
 
-    def test_deleting_original_application_keeps_other_group_members_connected(self):
-        refs = self.legacy_anki_group()
+    def test_deleting_application_removes_its_edges_and_keeps_independent_edges(self):
+        refs = self.star_links()
+        self.session.links.append(link_between(self.website, self.guide))
         admin = self.window()
         admin.applications_page._remove_application(self.source.id)
-        self.assert_group(self.session, refs - {self.source})
-        self.assertEqual(len(self.session.links), 6)
+        self.assertEqual(self.session.links, [link_between(self.website, self.guide)])
         for ref in refs - {self.source}:
-            self.assertEqual(self.row_button(ref).text(), "3")
+            if ref in (self.website, self.guide):
+                self.assertEqual(self.row_button(ref).text(), "1")
+            else:
+                self.assertIsNone(self.row_button(ref))
 
-    def test_unchecking_member_splits_group_without_indirect_reconnection(self):
-        refs = self.legacy_anki_group()
+    def test_unchecking_removes_only_this_items_connection(self):
+        refs = self.star_links()
         self.window()
         dialog = self.open_editor(self.source)
         phone = EntryRef("phone_app", "phone")
         self.choose_links(dialog, refs - {self.source, phone}).save_button.click()
-        self.assert_group(self.session, refs)  # Still a draft until item Save.
+        self.assertEqual(set(related_entries(self.session, self.source)), refs - {self.source})
         dialog.save_button.click()
-        self.assert_group(self.session, refs - {phone})
+        self.assertEqual(set(related_entries(self.session, self.source)), refs - {self.source, phone})
         self.assertEqual(related_entries(self.session, phone), [])
         self.assertIsNone(self.row_button(phone))
         dialog = self.open_editor(self.website)
         self.choose_links(dialog, set()).save_button.click()
         dialog.save_button.click()
         self.assertEqual(related_entries(self.session, self.website), [])
-        self.assert_group(self.session, refs - {phone, self.website})
+        self.assertEqual(set(related_entries(self.session, self.source)), {self.license, self.guide})
 
-    def test_selecting_member_of_another_group_includes_its_hidden_members(self):
+    def test_selecting_an_entry_does_not_select_its_hidden_connections(self):
         phone = EntryRef("phone_app", "phone")
         replace_links(self.session, self.source, {self.website})
         replace_links(self.session, phone, {self.guide})
@@ -224,20 +219,59 @@ class RelationshipChecks(unittest.TestCase):
             row = picker.entries_list.item(index)
             if row.data(Qt.ItemDataRole.UserRole) == phone:
                 row.setCheckState(Qt.CheckState.Checked)
-        self.assertEqual(picker.selected_refs(), {self.source, phone, self.guide})
+        self.assertEqual(picker.selected_refs(), {self.source, phone})
         picker.save_button.click()
         dialog.save_button.click()
-        self.assert_group(self.session, {self.source, self.website, phone, self.guide})
-        self.assert_group(self.session, unrelated)
+        self.assertEqual(set(related_entries(self.session, self.website)), {self.source, phone})
+        self.assertEqual(set(related_entries(self.session, phone)), {self.website, self.guide})
+        self.assertEqual(set(related_entries(self.session, self.guide)), {phone})
+        self.assertEqual(set(related_entries(self.session, EntryRef("application", "other"))), {EntryRef("license", "other")})
 
-    def test_moving_selected_members_preserves_the_groups_left_behind(self):
+    def test_editing_one_item_does_not_steal_another_items_connections(self):
         phone = EntryRef("phone_app", "phone")
         replace_links(self.session, self.source, {self.website})
         replace_links(self.session, phone, {self.license, self.guide})
         replace_links(self.session, self.source, {self.website, phone})
-        self.assert_group(self.session, {self.source, self.website, phone})
-        self.assert_group(self.session, {self.license, self.guide})
-        self.assert_group(decode_catalog(catalog_data(self.session)), {self.source, self.website, phone})
+        for session in (self.session, decode_catalog(catalog_data(self.session))):
+            self.assertEqual(set(related_entries(session, self.source)), {self.website, phone})
+            self.assertEqual(set(related_entries(session, phone)), {self.source, self.license, self.guide})
+            self.assertEqual(set(related_entries(session, self.license)), {phone})
+            self.assertEqual(set(related_entries(session, self.guide)), {phone})
+
+    def test_contacts_and_outlook_can_share_phone_documentation_without_app_link(self):
+        self.session.phone_apps.extend([PhoneApp("Outlook", "outlook"), PhoneApp("Contacts", "contacts")])
+        self.session.documentation.items[0].name = "Phones"
+        outlook, contacts = EntryRef("phone_app", "outlook"), EntryRef("phone_app", "contacts")
+        replace_links(self.session, outlook, {self.guide})
+        self.window()
+        dialog = self.open_editor(contacts)
+        dialog.related_editor.choose_entries()
+        picker = dialog.related_editor.picker
+        picker.tabs.setCurrentIndex(1)
+        picker.documentation_picker.nodes["phones"].setCheckState(0, Qt.CheckState.Checked)
+        self.assertEqual(picker.selected_refs(), {self.guide})
+        picker.save_button.click()
+        dialog.save_button.click()
+        for session in (self.session, decode_catalog(catalog_data(self.session))):
+            self.assertEqual(related_entries(session, contacts), [self.guide])
+            self.assertEqual(related_entries(session, outlook), [self.guide])
+            self.assertEqual(set(related_entries(session, self.guide)), {contacts, outlook})
+        self.assertEqual(self.row_button(contacts).text(), "1")
+        self.assertEqual(self.row_button(outlook).text(), "1")
+
+    def test_removing_old_inferred_app_link_does_not_regenerate_it(self):
+        phone = EntryRef("phone_app", "phone")
+        self.session.links[:] = [link_between(self.source, self.guide), link_between(phone, self.guide),
+                                 link_between(self.source, phone)]
+        admin = self.window()
+        dialog = self.open_editor(phone)
+        self.choose_links(dialog, {self.guide}).save_button.click()
+        dialog.save_button.click()
+        admin._catalog_edited()
+        for session in (self.session, decode_catalog(catalog_data(self.session))):
+            self.assertEqual(related_entries(session, phone), [self.guide])
+            self.assertEqual(related_entries(session, self.source), [self.guide])
+            self.assertEqual(set(related_entries(session, self.guide)), {self.source, phone})
 
     def row_button(self, ref):
         page = self.admin.relationship_pages[ref.kind]

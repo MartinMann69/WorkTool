@@ -31,8 +31,7 @@ class AdminWindow(AdminDataTools, QWidget):
     def __init__(self, parent=None, *, session=None):
         super().__init__(parent)
         self.session = session if session is not None else LibrarySession()
-        # Upgrade existing direct links before any edit or deletion can split
-        # the group around its original connecting entry.
+        # Normalize direct connections and discard references to deleted items.
         self.session.links[:] = valid_links(self.session)
         self.setObjectName("adminWindow")
         self.setWindowTitle("TSLibrary — Administration")

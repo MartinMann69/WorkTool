@@ -1,7 +1,6 @@
-"""Connected catalog groups, represented by compatible typed link records."""
+"""Direct, bidirectional connections between typed catalog records."""
 
 from dataclasses import dataclass
-from itertools import combinations
 
 
 ENTRY_TYPES = {
@@ -43,33 +42,8 @@ def link_between(first, second):
 
 def valid_links(session):
     entries = catalog_entries(session)
-    return _complete_groups(link for link in session.links
-                            if link.first in entries and link.second in entries
-                            and link.first != link.second)
-
-
-def _complete_groups(links):
-    """Every member can reach every other member, including old star links.
-
-    Materialise the groups so deleting their original connecting item does not
-    disconnect the other members. The existing catalog/backup format is kept.
-    """
-    neighbours = {}
-    for link in links:
-        neighbours.setdefault(link.first, set()).add(link.second)
-        neighbours.setdefault(link.second, set()).add(link.first)
-    remaining = set(neighbours)
-    result = []
-    while remaining:
-        pending = [remaining.pop()]
-        group = set(pending)
-        while pending:
-            for ref in neighbours[pending.pop()] - group:
-                group.add(ref)
-                remaining.discard(ref)
-                pending.append(ref)
-        result.extend(CatalogLink(first, second) for first, second in combinations(sorted(group), 2))
-    return sorted(result)
+    return sorted({link_between(link.first, link.second) for link in session.links
+                   if link.first in entries and link.second in entries and link.first != link.second})
 
 
 def related_entries(session, source):
@@ -82,18 +56,13 @@ def related_entries(session, source):
 
 
 def replace_links(session, source, targets):
-    """Save exact group membership; excluded members remain grouped together.
-
-    Chosen members are moved out of their old groups before joining the source,
-    so an unchecked item cannot reappear through a remaining indirect link.
-    The picker includes an existing target's whole group when first selected.
-    """
+    """Replace only this item's links, preserving every other item's links."""
     entries = catalog_entries(session)
     if source not in entries:
         return False
-    group = {source} | {ref for ref in targets if ref in entries}
-    updated = {link for link in valid_links(session) if link.first not in group and link.second not in group}
-    updated.update(CatalogLink(first, second) for first, second in combinations(sorted(group), 2))
+    targets = {ref for ref in targets if ref in entries and ref != source}
+    updated = {link for link in valid_links(session) if source not in (link.first, link.second)}
+    updated.update(link_between(source, ref) for ref in targets)
     updated = sorted(updated)
     changed = updated != session.links
     session.links[:] = updated
@@ -125,4 +94,4 @@ def decode_links(data, session):
         links.add(link_between(endpoint(record.get("first")), endpoint(record.get("second"))))
     entries = catalog_entries(session)
     # Old backups or externally removed records may leave references behind.
-    return _complete_groups(link for link in links if link.first in entries and link.second in entries)
+    return sorted(link for link in links if link.first in entries and link.second in entries)
