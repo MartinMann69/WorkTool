@@ -12,8 +12,8 @@ def caption(text, name="adminDescription", *, wrap=True):
     return label
 
 
-def action(text, name="emptyAction"):
-    button = QPushButton(text)
+def action(text, name="emptyAction", *, parent=None):
+    button = QPushButton(text, parent)
     button.setObjectName(name)
     button.setAutoDefault(False)
     button.setCursor(Qt.CursorShape.PointingHandCursor)

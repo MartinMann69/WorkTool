@@ -112,7 +112,7 @@ class DocumentationPage(CatalogPage):
         self.explorer_button.setToolTip("Open the current documentation folder in Windows File Explorer")
         self.explorer_button.clicked.connect(self.open_in_explorer)
         self.folder_bar.addWidget(self.explorer_button)
-        self.add_files_button = action("Add files…", "adminPrimary")
+        self.add_files_button = action("Add files…", "adminPrimary", parent=bar)
         self.add_files_button.setFixedHeight(34)
         self.add_files_button.clicked.connect(self.choose_files)
         self.add_files_button.setVisible(self.editable)

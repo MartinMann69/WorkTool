@@ -156,10 +156,6 @@ class AdminWindow(AdminDataTools, QWidget):
         page.table.selectRow(row)
         page.table.scrollToItem(page.table.item(row, 0))
         page.table.setFocus()
-        if ref.kind == "license":
-            page.open_licenses(entry)
-        elif ref.kind == "documentation":
-            page.open_item(entry)
         return True
 
     @property

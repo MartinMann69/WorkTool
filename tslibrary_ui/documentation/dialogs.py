@@ -149,7 +149,7 @@ class DocumentationFilesDialog(QDialog):
         self.message = caption("", "formError")
         layout.addWidget(self.message)
         buttons = QHBoxLayout()
-        self.add_button = action("Add files…", "adminPrimary")
+        self.add_button = action("Add files…", "adminPrimary", parent=self)
         self.add_button.setVisible(editable)
         self.add_button.clicked.connect(self.choose_files)
         buttons.addWidget(self.add_button)

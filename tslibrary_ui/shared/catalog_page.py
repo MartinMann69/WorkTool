@@ -105,7 +105,7 @@ class CatalogPage(QWidget):
         self.search.setClearButtonEnabled(True)
         search_layout.addWidget(self.search, 1)
         toolbar.addWidget(search_shell, 1)
-        self.category_filter = FilterCombo()
+        self.category_filter = FilterCombo(self.toolbar)
         self.category_filter.setAccessibleName("Category filter")
         self.category_filter.addItem("All categories")
         self.category_filter.setFixedSize(154, 42)

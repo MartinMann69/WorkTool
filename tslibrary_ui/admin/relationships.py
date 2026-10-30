@@ -226,7 +226,7 @@ class RelatedEntriesEditor(QFrame):
 
 
 def row_links_button(session, source, navigate, parent):
-    """One link opens directly; several offer a menu with typed destinations."""
+    """Navigate to one linked item or offer a menu with typed destinations."""
     refs = related_entries(session, source)
     if not refs:
         return None

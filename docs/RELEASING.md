@@ -4,7 +4,7 @@ The Windows installer contains Python and all runtime dependencies. Recipients n
 
 ## Build a release
 
-1. Set the app release number in `tslibrary_ui/version.py` (currently `0.7.0`). This is the single source used by the app and build script; it is independent of saved-data schema versions.
+1. Set the app release number in `tslibrary_ui/version.py` (currently `0.7.2`). This is the single source used by the app and build script; it is independent of saved-data schema versions.
 2. Run the regression suite: `.venv\Scripts\python -m unittest discover -s tests -v`. On a restricted Windows runner, set `TEMP` and `TMP` to a writable temporary directory. The single-instance tests need permission to create local named pipes.
 3. Install build dependencies if needed: `.venv\Scripts\python -m pip install -r requirements.txt -r requirements-build.txt`. Install Inno Setup 6 on the build PC.
 4. Run `scripts\build_windows.ps1` (or pass `-InnoCompiler 'C:\Path\To\ISCC.exe'`). It produces `dist\TSLibrary-Setup-<version>.exe` and a matching `.sha256` file. Keep the build on Windows; PyInstaller is not a cross-compiler.

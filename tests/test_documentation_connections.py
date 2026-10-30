@@ -147,10 +147,12 @@ class DocumentationConnectionChecks(unittest.TestCase):
         self.assertEqual(set(related_entries(self.session, ref)), {self.app_ref, self.license_ref})
         with patch("tslibrary_ui.documentation.page.QDesktopServices.openUrl", return_value=True) as launch:
             self.assertTrue(self.admin.navigate_to_entry(ref))
-        self.assertEqual(Path(launch.call_args.args[0].toLocalFile()), self.root / item.name)
+        launch.assert_not_called()
         self.assertEqual(self.page.selected_folder, "Microsoft/Word")
         self.assertNotIn("Microsoft/Word/Guide.pdf", self.page.folder_tree.items_by_path)
         row = next(index for index in range(self.page.table.rowCount()) if self.page.table.item(index, 0).data(Qt.ItemDataRole.UserRole) == item.id)
+        self.assertEqual(self.page.table.currentRow(), row)
+        self.assertTrue(self.page.table.selectedItems())
         self.assertEqual(self.page.table.item(row, 0).data(FILE_ROLE), item.name)
         self.assertIsNone(self.page.table.item(row, 0).data(FOLDER_ROLE))
 

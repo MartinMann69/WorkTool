@@ -327,7 +327,7 @@ class RelationshipChecks(unittest.TestCase):
         self.assertIs(admin.current_page, admin.applications_page)
         self.assertIsNone(admin.findChild(QFrame, "relatedEntriesPanel"))
 
-    def test_multiple_links_offer_typed_destinations_and_open_details(self):
+    def test_multiple_links_navigate_and_select_without_opening_details(self):
         replace_links(self.session, self.source, {self.website, self.license, self.guide})
         admin = self.window()
         admin.navigate_to_entry(self.source)
@@ -339,14 +339,20 @@ class RelationshipChecks(unittest.TestCase):
         page.search.setText("Other")
         page.category_filter.setCurrentText("Other")
         license_action = button.menu().actions()[button.target_refs.index(self.license)]
-        license_action.trigger()
-        self.assertIs(page.license_window.item, self.session.items[0])
-        page.license_window.close()
+        with patch.object(page, "open_licenses") as open_licenses:
+            license_action.trigger()
+            open_licenses.assert_not_called()
+        self.assertIs(admin.current_page, page)
+        self.assertEqual(page.table.item(page.table.currentRow(), 0).data(Qt.ItemDataRole.UserRole), self.license.id)
+        self.assertTrue(page.table.selectedItems())
         admin.navigate_to_entry(self.source)
         button = self.row_button(self.source)
         with patch.object(admin.documentation_page, "open_item") as open_item:
             button.menu().actions()[button.target_refs.index(self.guide)].trigger()
-            open_item.assert_called_once_with(self.session.documentation.items[0])
+            open_item.assert_not_called()
+        page = admin.documentation_page
+        self.assertIs(admin.current_page, page)
+        self.assertEqual(page.table.item(page.table.currentRow(), 0).data(Qt.ItemDataRole.UserRole), self.guide.id)
 
     def test_sort_rename_filter_and_delete_keep_buttons_on_their_record(self):
         replace_links(self.session, self.source, {self.website})

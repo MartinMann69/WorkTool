@@ -78,7 +78,7 @@ class DocumentationNavigationChecks(unittest.TestCase):
         page.search.setText("nothing")
         with patch.object(page, "open_item") as open_item:
             self.assertTrue(self.admin.navigate_to_entry(EntryRef("documentation", self.word.id)))
-            open_item.assert_called_once_with(self.word)
+            open_item.assert_not_called()
         self.assertEqual(page.selected_folder, "Microsoft/Word")
         self.assertEqual(page.search.text(), "")
         self.assertEqual(page.table.item(page.table.currentRow(), 0).text(), "docuWord")
@@ -142,7 +142,9 @@ class DocumentationNavigationChecks(unittest.TestCase):
         page.refresh()
         self.assertIsNotNone(page.table.cellWidget(0, page.links_column))
         self.assertTrue(self.admin.navigate_to_entry(EntryRef("documentation", parent.id)))
-        self.assertEqual(page.selected_folder, parent.name)
+        self.assertEqual(page.selected_folder, "")
+        self.assertEqual(page.table.item(page.table.currentRow(), 0).text(), parent.name)
+        page.navigate_folder(parent.name)
         self.assertIn("Research &amp; Notes", page.folder_caption.text())
         self.assertNotIn("Research & Notes", page.folder_caption.text())
 
